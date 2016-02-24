@@ -12,7 +12,7 @@ import os
 import pandas
 import requests
 
-logger = logging.getLogger('get_paus')
+logger = logging.getLogger(__name__)
 
 
 def get_paus_from_xmgr(xmgr, output, limit=None, interval=None):
