@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-"""Look up answer IDs matching top answer text and add them to the WEA logs"""
+"""Look up answer Ids matching the top answer text and add them to the WEA logs.
+The mapping from answer text to answer Id is taken from the corpus file extracted by get_paus.py.
+Optionally search for PAU ids inserted into the TopAnswerText field, because XMGR sometimes does that."""
 import argparse
 import logging
 import re
@@ -19,17 +21,17 @@ def wea_answers(wea_file, corpus_file, id_in_text, n):
     wea = pandas.read_csv(wea_file, nrows=n, encoding="utf-8")
     corpus = pandas.read_csv(corpus_file, usecols=[ID, RESPONSE_MARKUP], encoding="utf-8")
     corpus.rename(columns={ID: ANSWER_ID, RESPONSE_MARKUP: TOP_ANSWER_TEXT}, inplace=True)
-    merged = pandas.merge(wea, corpus, on=TOP_ANSWER_TEXT, how="outer")
+    merged = pandas.merge(wea, corpus, on=TOP_ANSWER_TEXT).dropna(subset=["QuestionText"])
     # Some WEA logs have the PAU id written into the TopAnswerText column instead of the PAU text for some answers.
     if id_in_text:
-        merged[ANSWER_ID] = merged[ANSWER_ID].combine_first(wea.apply(lambda row: get_answer_id(row), axis="columns"))
+        merged[ANSWER_ID] = merged[ANSWER_ID].combine_first(wea.apply(lambda row: get_answer_id_from_answer_text(row)))
     logger.info("%d questions, %d questions with answer ids" % (len(merged), merged[ANSWER_ID].count()))
     return merged
 
 
-def get_answer_id(row):
+def get_answer_id_from_answer_text(row):
     answer_id = None
-    # PAUID - PAU Title
+    # PAUId - PAU Title
     m = re.match("(\w+) - .*", row["TopAnswerText"])
     if m:
         answer_id = m.group(1)
