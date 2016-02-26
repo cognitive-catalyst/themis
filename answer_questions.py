@@ -32,7 +32,7 @@ def wea_answers(questions, output_filename, wea_logs_file):
     answers.rename(columns={QUESTION_TEXT: QUESTION, TOP_ANSWER_CONFIDENCE: CONFIDENCE}, inplace=True)
     answers.sort([QUESTION], inplace=True)
     answers = answers[[QUESTION, ANSWER_ID, CONFIDENCE]]
-    answers.to_csv(output_filename, encoding="utf8")
+    answers.to_csv(output_filename, index=False, encoding="utf8")
 
 
 def answer_questions(system, questions, output_filename, interval):
