@@ -32,7 +32,7 @@ def wea_answers(questions, output_filename, wea_logs_file):
     answers.rename(columns={QUESTION_TEXT: QUESTION, TOP_ANSWER_CONFIDENCE: CONFIDENCE}, inplace=True)
     answers.sort([QUESTION], inplace=True)
     answers = answers[[QUESTION, ANSWER_ID, CONFIDENCE]]
-    answers.to_csv(output_filename, index=False, encoding="utf8")
+    answers.to_csv(output_filename, index=False, encoding="utf-8")
 
 
 def answer_questions(system, questions, output_filename, interval):
@@ -156,11 +156,11 @@ if __name__ == "__main__":
 
     subparsers = parser.add_subparsers(dest="system", help="Q&A system to use")
 
-    wea_parser = subparsers.add_parser('wea', help="Answer questions with WEA logs", parents=[filenames_parser])
+    wea_parser = subparsers.add_parser("wea", help="Answer questions with WEA logs", parents=[filenames_parser])
     wea_parser.add_argument("wea_logs_file", metavar="wea", type=argparse.FileType(),
                             help="WEA logs with answer id column")
 
-    nlc_parser = subparsers.add_parser('nlc', help="Answer questions with NLC",
+    nlc_parser = subparsers.add_parser("nlc", help="Answer questions with NLC",
                                        parents=[filenames_parser, interval_parser])
     nlc_parser.add_argument("username", type=str, help="NLC username")
     nlc_parser.add_argument("password", type=str, help="NLC password")
@@ -169,14 +169,14 @@ if __name__ == "__main__":
                             default="https://gateway-s.watsonplatform.net/natural-language-classifier/api/v1/classifiers",
                             help="NLC url")
 
-    solr_parser = subparsers.add_parser('solr', help="Answer questions with Solr",
+    solr_parser = subparsers.add_parser("solr", help="Answer questions with Solr",
                                         parents=[filenames_parser, interval_parser])
     solr_parser.add_argument("url", type=str, help="solr URL")
     args = parser.parse_args()
 
     configure_logger(args.log.upper(), "%(asctime)-15s %(message)s")
 
-    questions = pandas.read_csv(args.questions_file, encoding="utf8", nrows=args.max_questions)[QUESTION]
+    questions = pandas.read_csv(args.questions_file, encoding="utf-8", nrows=args.max_questions)[QUESTION]
     if args.system == "wea":
         wea_answers(questions, args.output_filename, args.wea_logs_file)
     else:
