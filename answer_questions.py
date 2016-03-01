@@ -45,7 +45,7 @@ def answer_questions(system, questions, output_filename, interval):
             if i is 1 or i % interval is 0:
                 logger.info("Question %d of %d" % (i, n))
             answer_id, confidence = system.ask(question)
-            logger.debug("%s\t%s\t%f" % (question, answer_id, confidence))
+            logger.debug("%s\t%s\t%s" % (question, answer_id, confidence))
             answers.write(question, answer_id, confidence)
     finally:
         answers.close()
@@ -84,8 +84,7 @@ class Solr(object):
         return "Solr: %s" % self.url
 
     def ask(self, question):
-        # Escape reserved Solr characters.
-        question = re.sub(self.SOLR_CHARS, lambda m: "\%s" % m.group(1), question)
+        question = self.escape_solr_query(question)
         logger.debug(question)
         r = self.connection.query(question).results
         n = len(r)
@@ -97,6 +96,10 @@ class Solr(object):
             answer_id = None
             confidence = None
         return answer_id, confidence
+
+    def escape_solr_query(self, s):
+        s = s.replace("/", "\\/")
+        return re.sub(self.SOLR_CHARS, lambda m: "\%s" % m.group(1), s)
 
 
 class DataFrameCheckpoint(object):
