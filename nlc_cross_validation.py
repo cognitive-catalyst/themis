@@ -66,6 +66,12 @@ def nlc_model_status(nlc, directory):
         print("Model %s\t%s: %s" % (model, status["status"], status["status_description"]))
 
 
+def nlc_model_delete(nlc, directory):
+    for model, classifier_id in models_from_directory(directory):
+        print("Delete model %s" % model)
+        nlc.remove(classifier_id)
+
+
 def test_nlc_models(nlc, directory, random):
     results_filenames = []
     for model_id, classifier_id in models_from_directory(directory):
@@ -126,7 +132,7 @@ if __name__ == "__main__":
                         help="NLC url")
     parser.add_argument("--log", type=str, default="ERROR", help="logging level")
 
-    subparsers = parser.add_subparsers(dest="system", help="train, status, or test")
+    subparsers = parser.add_subparsers(dest="system", help="train, status, test or delete")
 
     train_parser = subparsers.add_parser("train", help="train NLC cross-validation models")
     train_parser.add_argument("truth", type=argparse.FileType(), help="truth file")
@@ -140,6 +146,8 @@ if __name__ == "__main__":
     test_parser.add_argument("--random", metavar="truth file", type=argparse.FileType(),
                              help="randomly assign answers from the ground truth file")
 
+    delete_parser = subparsers.add_parser("delete", help="delete the NLC models used here")
+
     args = parser.parse_args()
 
     configure_logger(args.log.upper(), "%(asctime)-15s %(message)s")
@@ -151,6 +159,8 @@ if __name__ == "__main__":
         train_nlc_models(nlc, args.directory, args.experiment_name)
     elif args.system == "status":
         nlc_model_status(nlc, args.directory)
+    elif args.system == "delete":
+        nlc_model_delete(nlc, args.directory)
     else:  # args.system == "test"
         if args.random:
             args.random = pandas.read_csv(args.random, encoding="utf-8")
