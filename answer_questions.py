@@ -7,12 +7,11 @@ If the job fails you can restart it with that output file and it will pick up wh
 """
 import argparse
 import logging
-import os
 import re
 
 import pandas
-import requests
 import solr
+from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -53,23 +52,15 @@ def answer_questions(system, questions, output_filename, interval):
 
 class NLC(object):
     def __init__(self, url, username, password, classifier_id):
-        self.url = url
-        self.username = username
-        self.password = password
+        self.nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
         self.classifier_id = classifier_id
 
     def __repr__(self):
-        return "NLC: %s" % os.path.join(self.url, self.classifier_id)
+        return "NLC: %s" % self.classifier_id
 
     def ask(self, question):
-        url = os.path.join(self.url, self.classifier_id, "classify")
-        logger.debug("GET %s" % url)
-        r = requests.get(url, auth=(self.username, self.password), params={"text": question})
-        logger.debug("Status %d" % r.status_code)
-        answer = r.json()
-        answer_id = answer["classes"][0]["class_name"]
-        confidence = answer["classes"][0]["confidence"]
-        return answer_id, confidence
+        classification = self.nlc.classify(self.classifier_id, question)
+        return classification["classes"][0]["class_name"], classification["classes"][0]["confidence"]
 
 
 class Solr(object):
@@ -169,7 +160,7 @@ if __name__ == "__main__":
     nlc_parser.add_argument("password", type=str, help="NLC password")
     nlc_parser.add_argument("classifier_id", type=str, help="NLC classifier id")
     nlc_parser.add_argument("--url", type=str,
-                            default="https://gateway-s.watsonplatform.net/natural-language-classifier/api/v1/classifiers",
+                            default="https://gateway-s.watsonplatform.net/natural-language-classifier/api",
                             help="NLC url")
 
     solr_parser = subparsers.add_parser("solr", help="Answer questions with Solr",
