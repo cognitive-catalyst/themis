@@ -34,8 +34,6 @@ def collate_qa_answers(corpus_file, system_files, names, truth_file):
         system.columns = pandas.MultiIndex.from_tuples([(name, c) for c in system.columns])
         fs.append(system)
     # Join the results from the different systems into a single data frame.
-    # Read it back in with a command like the following.
-    # pandas.read_csv(filename, encoding="utf-8", header=[0,1], index_col=0)
     return reduce(lambda m, f: m.join(f), fs)
 
 
@@ -56,6 +54,19 @@ def filter_systems(systems, sample, correct_systems, incorrect_systems):
     return systems
 
 
+def systems_to_html(systems):
+    system_names = systems.columns.levels[0]
+    html_lines = ["<table border=1>"]
+    html_lines.append("<th>Question</th>" + " ".join(["<th>%s</th>" % system_name for system_name in system_names]))
+    questions = systems.index
+    answer_rows = zip(*[systems[n]['Answer'] for n in system_names])
+    for question, answer_row in zip(questions, answer_rows):
+        s = " ".join(["<td>%s</td>" % field for field in ([question] + list(answer_row))])
+        html_lines.append("<tr> %s </tr>" % s)
+    html_lines.append("</table>")
+    return "\n".join(html_lines).encode("utf-8")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("corpus", type=argparse.FileType(), help="corpus mapping answer to answer Id")
@@ -65,6 +76,7 @@ if __name__ == "__main__":
     parser.add_argument("--truth", type=argparse.FileType(), help="truth file with correct answers")
     parser.add_argument("--correct", type=str, nargs="+", default=[], help="filter on these systems being correct")
     parser.add_argument("--incorrect", type=str, nargs="+", default=[], help="filter on these systems being incorrect")
+    parser.add_argument("--format", choices=["csv", "html"], default="csv", help="output format, default csv")
     parser.add_argument("--sample", type=int, help="number of questions to sample, default all")
     args = parser.parse_args()
 
@@ -73,10 +85,15 @@ if __name__ == "__main__":
     elif not len(args.names) == len(args.systems):
         parser.print_usage()
         parser.error("There must be a name for each system.")
-    if args.truth is None and args.correct is not None:
+    if args.truth is None and args.correct:
         parser.print_usage()
         parser.error("Must specify a truth file to filter on correctness.")
 
     systems = collate_qa_answers(args.corpus, args.systems, args.names, args.truth)
     systems = filter_systems(systems, args.sample, args.correct, args.incorrect)
-    print(systems.to_csv(encoding="utf-8"))
+    if args.format == "csv":
+        # Read it back in with a command like the following:
+        # pandas.read_csv(filename, encoding="utf-8", header=[0,1], index_col=0)
+        print(systems.to_csv(encoding="utf-8"))
+    else:  # args.format == "html"
+        print(systems_to_html(systems))
