@@ -6,16 +6,16 @@ import os
 """Display a precision curve for multiple systems"""
 
 import matplotlib.pyplot as plt
-import numpy
 import pandas
 
 ANSWER_ID = "AnswerId"
 CONFIDENCE = "Confidence"
+BIN = "Bin"
 
 
-def precision_curve_plot(truth, predictions, x_axis, labels, title):
+def precision_curve_plot(truth, predictions, points, labels, title):
     for prediction, label in zip(predictions, labels):
-        questions_attempted, precision = precision_curve(truth, pandas.read_csv(prediction, encoding="utf-8"), x_axis)
+        questions_attempted, precision = precision_curve(truth, pandas.read_csv(prediction, encoding="utf-8"), points)
         plt.plot(questions_attempted, precision, label=label)
     plt.legend()
     plt.title(title)
@@ -24,14 +24,15 @@ def precision_curve_plot(truth, predictions, x_axis, labels, title):
     return plt
 
 
-def precision_curve(truth, predictions, ts):
+def precision_curve(truth, predictions, bins):
     in_purview = pandas.merge(truth, predictions, on="Question")
+    in_purview[BIN] = pandas.qcut(in_purview[CONFIDENCE], bins, labels=False)
     correct = in_purview[in_purview[ANSWER_ID] == in_purview["PredictedAnswerId"]]
     questions_attempted = []
     precision = []
-    for t in ts:
-        questions_attempted.append(ratio(sum(in_purview[CONFIDENCE] > t), len(in_purview)))
-        precision.append(ratio(sum(correct[CONFIDENCE] > t), sum(in_purview[CONFIDENCE] > t)))
+    for t in xrange(bins):
+        questions_attempted.append(ratio(sum(in_purview[BIN] >= t), len(in_purview)))
+        precision.append(ratio(sum(correct[BIN] >= t), sum(in_purview[BIN] >= t)))
     return questions_attempted, precision
 
 
@@ -56,7 +57,6 @@ if __name__ == "__main__":
         parser.print_usage()
         parser.error("Number of prediction labels must equal number of labels")
     truth = pandas.read_csv(args.truth, encoding="utf-8")
-    x_axis = numpy.arange(1, 0, -1.0 / args.points)
     if args.labels is None:
         args.labels = [os.path.basename(prediction) for prediction in args.predictions]
-    precision_curve_plot(truth, args.predictions, x_axis, args.labels, args.title).show()
+    precision_curve_plot(truth, args.predictions, args.points, args.labels, args.title).show()
