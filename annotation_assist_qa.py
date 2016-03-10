@@ -37,7 +37,7 @@ def convert_qa(corpus_file, system_files, sample):
     corpus.rename(columns={RESPONSE_MARKUP: ANSWER, ID: ANSWER_ID}, inplace=True)
     systems = [pandas.merge(system, corpus, on=ANSWER_ID) for system in systems]
     # noinspection PyUnresolvedReferences
-    systems = pandas.concat(systems).drop_duplicates()
+    systems = pandas.concat(systems).drop_duplicates([QUESTION, ANSWER_ID])
     # Add a dummy date time because the Annotation Assist README says that this column is required.
     systems[DATE_TIME] = "06052015:061049:UTC"
     logger.info("%d total Q&A pairs" % len(systems))
