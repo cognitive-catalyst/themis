@@ -21,9 +21,9 @@ def compare_qa_systems(results):
 
 
 def unique_answer_histogram(results):
-    m = pandas.concat([r[["AnswerId"]] for r in results]).drop_duplicates()
+    m = pandas.concat([r.reset_index()[["Question", "AnswerId"]] for r in results]).drop_duplicates()
     answer_id_counts = m.groupby(m.index).count()
-    return pandas.DataFrame(data=answer_id_counts["AnswerId"].value_counts(), columns=["Count"])
+    return pandas.DataFrame(answer_id_counts["AnswerId"].value_counts(), columns=["Count"]).sort_index()
 
 
 if __name__ == "__main__":
