@@ -20,6 +20,7 @@ QUESTION_TEXT = "QuestionText"
 ANSWER_ID = "AnswerId"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 CONFIDENCE = "Confidence"
+USER_EXPERINCE = "UserExperience"
 
 
 def wea_answers(questions, output_filename, wea_logs_file):
@@ -29,7 +30,7 @@ def wea_answers(questions, output_filename, wea_logs_file):
     answers = answers[answers[QUESTION_TEXT].isin(questions)]
     # TODO What if a question is not in the WEA log file?
     answers.rename(columns={QUESTION_TEXT: QUESTION, TOP_ANSWER_CONFIDENCE: CONFIDENCE}, inplace=True)
-    answers.sort([QUESTION], inplace=True)
+    answers.sort_values([QUESTION], inplace=True)
     answers = answers[[QUESTION, ANSWER_ID, CONFIDENCE]]
     answers.to_csv(output_filename, index=False, encoding="utf-8")
 

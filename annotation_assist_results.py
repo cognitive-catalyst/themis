@@ -31,6 +31,7 @@ def collate_judgements(questions, corpus, answers, judgements):
     judgements = pandas.merge(answers, judgements, on=(QUESTION, ANSWER_ID))
     # Add question frequency information
     judgements = pandas.merge(judgements, questions, on=QUESTION)
+    judgements[IN_PURVIEW] = judgements[IN_PURVIEW].astype("bool")
     return judgements[[QUESTION, FREQUENCY, ANSWER_ID, CONFIDENCE, IN_PURVIEW, JUDGEMENT]]
 
 
