@@ -4,6 +4,9 @@ setup(
     name='themis',
     version='1.0.0',
     packages=['themis'],
+    entry_points={
+        'console_scripts': ['themis=themis.cli:run'],
+    },
     url='https://github.ibm.com/WatsonTooling/data-science',
     license='',
     author='W.P. McNeill',

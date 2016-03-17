@@ -4,6 +4,13 @@ import pandas
 
 logger = logging.getLogger(__name__)
 
+QUESTION = "Question"
+ANSWER_ID = "Answer Id"
+
+
+def to_csv(filename, dataframe, **kwargs):
+    dataframe.to_csv(filename, encoding="utf-8", **kwargs)
+
 
 class CsvFileType(object):
     """Pandas CSV file type used with argparse
