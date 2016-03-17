@@ -1,3 +1,4 @@
+import itertools
 import logging
 
 import pandas
@@ -5,6 +6,7 @@ import pandas
 logger = logging.getLogger(__name__)
 
 QUESTION = "Question"
+ANSWER = "Answer"
 ANSWER_ID = "Answer Id"
 
 
@@ -68,3 +70,7 @@ def configure_logger(level, format):
     h = logging.StreamHandler()
     h.setFormatter(logging.Formatter(format))
     logger.addHandler(h)
+
+
+def flatten(items):
+    return list(itertools.chain.from_iterable(items))

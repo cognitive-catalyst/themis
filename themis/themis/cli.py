@@ -13,11 +13,12 @@ def run():
     xmgr_parser.add_argument("username", type=str, help="XMGR username")
     xmgr_parser.add_argument("password", type=str, help="XMGR password")
     xmgr_parser.add_argument("output_directory", type=str, help="output directory")
+    xmgr_parser.add_argument("--max-docs", type=int, help="maximum number of corpus documents to download")
     args = parser.parse_args()
     configure_logger(args.log.upper(), "%(asctime)-15s %(levelname)-8s %(message)s")
 
     if args.command == "xmgr":
-        download_from_xmgr(args.url, args.username, args.password, args.output_directory)
+        download_from_xmgr(args.url, args.username, args.password, args.output_directory, args.max_docs)
 
 
 if __name__ == "__main__":
