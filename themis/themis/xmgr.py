@@ -5,7 +5,7 @@ import os
 import pandas
 import requests
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ANSWER, FREQUENCY
+from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ANSWER
 
 
 def download_from_xmgr(url, username, password, output_directory, max_docs):
@@ -103,28 +103,9 @@ def download_corpus(xmgr, output_directory, max_docs):
             corpus_csv_checkpoint.write(pau_id, pau)
             m += 1
     corpus_csv_checkpoint.close()
-    logger.info("%d PAU ids, %d with PAUs (%0.3f)" % (n, m, m / float(n)))
+    logger.info("%d PAU ids, %d with PAUs (%0.4f)" % (n, m, m / float(n)))
     os.remove(pau_ids_csv)
-
-
-def create_test_set_from_xmgr_logs(wea_logs, n):
-    """
-    Extract question text and the frequency with which a question was asked from the XMGR QuestionsData.csv report log.
-
-    Optionally sample of a set of questions. The sampled question frequency will be drawn from the same distribution as
-    the original one in the logs.
-
-    :param wea_logs: DataFrame of QuestionsData.csv report log
-    :param n: number of questions to sample
-    :return: DataFrame with Question, Frequency columns
-    """
-    # Frequency is the number of times the question appeared in the report log.
-    test_set = pandas.merge(wea_logs.drop_duplicates(QUESTION),
-                            wea_logs.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
-    if n is not None:
-        test_set = test_set.sample(n=n, weights=test_set[FREQUENCY])
-    logger.info("Test set with %d unique questions" % len(test_set))
-    return test_set.sort_values([FREQUENCY, QUESTION], ascending=[False, True]).set_index(QUESTION)
+    # TODO Optionally filter corpus, e.g. to remove KB articles.
 
 
 class XmgrProject(object):
