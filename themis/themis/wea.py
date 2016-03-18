@@ -37,6 +37,13 @@ def create_test_set_from_wea_logs(wea_logs, n):
 
 
 def wea_test(test_set, wea_logs):
+    """
+    Get answers returned by WEA to questions by looking them up in the usage logs.
+
+    :param test_set: DataFrame with Question, Frequency columns
+    :param wea_logs: DataFrame of QuestionsData.csv report log
+    :return: DataFrame with Question, Answer, and Confidence
+    """
     wea_logs = fix_confidence_ranges(wea_logs)
     test_set = pandas.merge(test_set, wea_logs, on=QUESTION)
     missing_answers = test_set[test_set[ANSWER].isnull()]
