@@ -8,10 +8,16 @@ logger = logging.getLogger(__name__)
 QUESTION = "Question"
 ANSWER = "Answer"
 ANSWER_ID = "Answer Id"
+CONFIDENCE = "Confidence"
+FREQUENCY = "Frequency"
 
 
 def to_csv(filename, dataframe, **kwargs):
     dataframe.to_csv(filename, encoding="utf-8", **kwargs)
+
+
+def print_csv(dataframe, **kwargs):
+    print(dataframe.to_csv(encoding="utf-8", **kwargs))
 
 
 class CsvFileType(object):
