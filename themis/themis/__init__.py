@@ -9,6 +9,8 @@ ANSWER = "Answer"
 ANSWER_ID = "Answer Id"
 CONFIDENCE = "Confidence"
 FREQUENCY = "Frequency"
+CORRECT = "Correct"
+IN_PURVIEW = "In Purview"
 
 
 def to_csv(filename, dataframe, **kwargs):
