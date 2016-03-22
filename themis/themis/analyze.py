@@ -1,5 +1,4 @@
 import numpy
-import pandas
 
 from themis import QUESTION, CORRECT, CsvFileType, IN_PURVIEW, ANSWER, CONFIDENCE, FREQUENCY
 
@@ -63,26 +62,6 @@ def confidence_thresholds(judgements, add_max):
     if add_max:
         ts = numpy.insert(ts, 0, numpy.Infinity)
     return ts
-
-
-def collate_systems(test_set, systems, judgements):
-    """
-    Collate judged answers for different systems.
-
-    :param test_set: questions and their frequencies
-    :param systems: dictionary of system name to answers file
-    :param judgements: human judgements of answer correctness, dataframe with (Answer, Correct) columns
-    :return: collated dataframes of judged answers for all the systems
-    """
-    fs = []
-    for name in systems:
-        s = add_judgements_to_qa_pairs(systems[name], judgements)
-        s.columns = pandas.MultiIndex.from_tuples([(name, c) for c in s.columns])
-        fs.append(s)
-    f = reduce(lambda m, f: m.join(f), fs)
-    # Add frequency information from the test set.
-    f = f.join(test_set.set_index(QUESTION))
-    return f
 
 
 def add_judgements_to_qa_pairs(system, judgements):
