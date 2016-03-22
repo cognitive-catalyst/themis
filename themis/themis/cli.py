@@ -3,7 +3,8 @@ import os
 
 import pandas
 
-from analyze import AnnotationAssistFileType, from_annotation_assist, analyze
+from analyze import AnnotationAssistFileType, from_annotation_assist, collate_systems, add_judgements_to_qa_pairs, \
+    roc_curve, precision_curve
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE
 from wea import wea_test, create_test_set_from_wea_logs
@@ -39,12 +40,20 @@ def run():
                             help="QuestionsData.csv log file from XMGR")
 
     analyze_parser = subparsers.add_parser("analyze", help="analyzed judged answers")
-    analyze_parser.add_argument("test_set", type=CsvFileType(), help="test set")
+    analyze_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
     analyze_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
     analyze_parser.add_argument("--judgement-threshold", type=float, default=50,
                                 help="cutoff value for a correct score, default 50")
     analyze_parser.add_argument("answers", type=str, nargs="+", help="answers returned by a system")
     analyze_parser.add_argument("--system-names", type=str, nargs="+", help="system names, e.g. WEA, Solr, NLC")
+
+    curves_parser = subparsers.add_parser("curves", help="plot curves")
+    curves_parser.add_argument("type", choices=["roc", "precision"], help="type of curve to create")
+    curves_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
+    curves_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
+    curves_parser.add_argument("--judgement-threshold", type=float, default=50,
+                               help="cutoff value for a correct score, default 50")
+    curves_parser.add_argument("answers", type=CsvFileType(), help="answers returned by a system")
 
     args = parser.parse_args()
 
@@ -69,8 +78,18 @@ def run():
         else:
             names = [os.path.basename(filename) for filename in args.answers]
         systems = dict(zip(names, files))
-        answers = analyze(args.test_set, systems, judgements)
+        answers = collate_systems(args.test_set, systems, judgements)
         print_csv(answers)
+    elif args.command == "curves":
+        judgements = from_annotation_assist(args.judgements, args.judgement_threshold)
+        data = add_judgements_to_qa_pairs(args.answers, judgements)
+        data = data.join(args.test_set.set_index(QUESTION))
+        if args.type == "roc":
+            curve = roc_curve(data)
+            print_csv(curve)
+        else:  # args.type == "precision"
+            curve = precision_curve(data)
+            print_csv(curve)
 
 
 if __name__ == "__main__":
