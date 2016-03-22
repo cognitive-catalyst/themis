@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy
 import pandas
 
@@ -28,7 +29,7 @@ def roc_curve(judgements):
     false_positive_rates = [false_positive_rate(judgements, t) for t in ts]
     plot = pandas.DataFrame.from_dict(
         {THRESHOLD: ts, TRUE_POSITIVE_RATE: true_positive_rates, FALSE_POSITIVE_RATE: false_positive_rates})
-    return plot[[THRESHOLD, TRUE_POSITIVE_RATE, FALSE_POSITIVE_RATE]].set_index(THRESHOLD)
+    return plot[[THRESHOLD, FALSE_POSITIVE_RATE, TRUE_POSITIVE_RATE]].set_index(THRESHOLD)
 
 
 def true_positive_rate(judgements, t):
@@ -50,7 +51,7 @@ def precision_curve(judgements):
     precision_values = [precision(judgements, t) for t in ts]
     attempted_values = [questions_attempted(judgements, t) for t in ts]
     plot = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
-    return plot[[THRESHOLD, PRECISION, ATTEMPTED]].set_index(THRESHOLD)
+    return plot[[THRESHOLD, ATTEMPTED, PRECISION]].set_index(THRESHOLD)
 
 
 def precision(judgements, t):
@@ -72,6 +73,13 @@ def confidence_thresholds(judgements, add_max):
     if add_max:
         ts = numpy.insert(ts, 0, numpy.Infinity)
     return ts
+
+
+def plot_curve(xs, ys, x_label, y_label):
+    plt.plot(xs, ys)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.show()
 
 
 def add_judgements_and_frequencies_to_qa_pairs(qa_pairs, judgements, question_frequencies):
