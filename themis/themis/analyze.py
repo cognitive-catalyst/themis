@@ -1,6 +1,13 @@
 import numpy
+import pandas
 
 from themis import QUESTION, CORRECT, CsvFileType, IN_PURVIEW, ANSWER, CONFIDENCE, FREQUENCY
+
+THRESHOLD = "Threshold"
+TRUE_POSITIVE_RATE = "True Positive Rate"
+FALSE_POSITIVE_RATE = "False Positive Rate"
+PRECISION = "Precision"
+ATTEMPTED = "Attempted"
 
 # Annotation Assist column names
 QUESTION_TEXT = "Question_Text"
@@ -19,7 +26,9 @@ def roc_curve(judgements):
     ts = confidence_thresholds(judgements, True)
     true_positive_rates = [true_positive_rate(judgements, t) for t in ts]
     false_positive_rates = [false_positive_rate(judgements, t) for t in ts]
-    return true_positive_rates, false_positive_rates, ts
+    plot = pandas.DataFrame.from_dict(
+        {THRESHOLD: ts, TRUE_POSITIVE_RATE: true_positive_rates, FALSE_POSITIVE_RATE: false_positive_rates})
+    return plot[[THRESHOLD, TRUE_POSITIVE_RATE, FALSE_POSITIVE_RATE]].set_index(THRESHOLD)
 
 
 def true_positive_rate(judgements, t):
@@ -40,7 +49,8 @@ def precision_curve(judgements):
     ts = confidence_thresholds(judgements, False)
     precision_values = [precision(judgements, t) for t in ts]
     attempted_values = [questions_attempted(judgements, t) for t in ts]
-    return precision_values, attempted_values, ts
+    plot = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
+    return plot[[THRESHOLD, PRECISION, ATTEMPTED]].set_index(THRESHOLD)
 
 
 def precision(judgements, t):
@@ -64,13 +74,11 @@ def confidence_thresholds(judgements, add_max):
     return ts
 
 
-def add_judgements_to_qa_pairs(system, judgements):
+def add_judgements_and_frequencies_to_qa_pairs(qa_pairs, judgements, question_frequencies):
     # The Annotation Assist tool strips newlines, so remove them from the answer text in the system output as well.
-    system[ANSWER] = system[ANSWER].str.replace("\n", "")
-    system = system.set_index([QUESTION, ANSWER])
-    judgements = judgements.set_index([QUESTION, ANSWER])
-    system = system.join(judgements)
-    return system.dropna()
+    qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
+    qa_pairs = pandas.merge(qa_pairs, judgements, on=(QUESTION, ANSWER)).dropna()
+    return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)
 
 
 class AnnotationAssistFileType(CsvFileType):

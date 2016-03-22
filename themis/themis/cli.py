@@ -1,6 +1,6 @@
 import argparse
 
-from analyze import AnnotationAssistFileType, from_annotation_assist, add_judgements_to_qa_pairs, \
+from analyze import AnnotationAssistFileType, from_annotation_assist, add_judgements_and_frequencies_to_qa_pairs, \
     roc_curve, precision_curve
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE
@@ -58,8 +58,7 @@ def run():
         print_csv(results)
     elif args.command == "curves":
         judgements = from_annotation_assist(args.judgements, args.judgement_threshold)
-        data = add_judgements_to_qa_pairs(args.answers, judgements)
-        data = data.join(args.test_set.set_index(QUESTION))
+        data = add_judgements_and_frequencies_to_qa_pairs(args.answers, judgements, args.test_set)
         if args.type == "roc":
             curve = roc_curve(data)
             print_csv(curve)
