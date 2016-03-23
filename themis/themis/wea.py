@@ -2,6 +2,7 @@ import pandas
 
 from themis import logger, QUESTION, CONFIDENCE, FREQUENCY, ANSWER
 
+# Column headers in WEA logs
 QUESTION_TEXT = "QuestionText"
 TOP_ANSWER_TEXT = "TopAnswerText"
 USER_EXPERIENCE = "UserExperience"
