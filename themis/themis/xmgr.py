@@ -8,7 +8,7 @@ import requests
 from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ANSWER
 
 
-def download_from_xmgr(url, username, password, output_directory, max_docs):
+def download_from_xmgr(url, username, password, output_directory, checkpoint_frequency, max_docs):
     """
     Download truth and corpus from an XMGR project
 
@@ -25,6 +25,7 @@ def download_from_xmgr(url, username, password, output_directory, max_docs):
     :param username: username
     :param password: password
     :param output_directory: directory in which to write XMGR files
+    :checkpoint_frequency: how often to write intermediate results to a checkpoint file
     :param max_docs: maximum number of corpus documents to download, if None, download them all
     """
     try:
@@ -40,7 +41,7 @@ def download_from_xmgr(url, username, password, output_directory, max_docs):
             json.dump(all_questions, f, indent=2)
         to_csv(truth_csv, truth)
     logger.info("Get corpus from %s" % xmgr)
-    download_corpus(xmgr, output_directory, max_docs)
+    download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs)
 
 
 def download_truth(xmgr):
@@ -68,7 +69,7 @@ def download_truth(xmgr):
     return all_questions, ground_truth
 
 
-def download_corpus(xmgr, output_directory, max_docs):
+def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
     pau_ids_csv = os.path.join(output_directory, "pau_ids.csv")
     corpus_csv = os.path.join(output_directory, "corpus.csv")
     # Get all documents from XMGR
@@ -76,36 +77,54 @@ def download_corpus(xmgr, output_directory, max_docs):
     if max_docs is not None:
         document_ids = set(list(document_ids)[:max_docs])
     # Get the list of all PAUs referenced by the documents, periodically saving intermediate results.
-    pau_ids_checkpoint = DataFrameCheckpoint(pau_ids_csv, ["Document Id", "Answer IDs"], 100)
-    document_ids -= pau_ids_checkpoint.recovered
-    n = len(document_ids)
-    logger.info("Get PAU ids from %d documents" % n)
-    for i, document_id in enumerate(document_ids, 1):
-        if i % 100 == 0 or i == 1 or i == n:
-            logger.info("Get PAU ids from document %d of %d" % (i, n))
-        pau_ids = xmgr.get_pau_ids_from_document(document_id)
-        pau_ids_checkpoint.write(document_id, pau_ids)
-    pau_ids_checkpoint.close()
+    pau_ids_checkpoint = DataFrameCheckpoint(pau_ids_csv, ["Document Id", "Answer IDs"], checkpoint_frequency)
+    try:
+        document_ids -= pau_ids_checkpoint.recovered
+        if pau_ids_checkpoint.recovered:
+            logger.info("Recovered %d PAU ids from previous run" % len(pau_ids_checkpoint.recovered))
+        n = len(document_ids)
+        logger.info("Get PAU ids from %d documents" % n)
+        for i, document_id in enumerate(document_ids, 1):
+            if i % checkpoint_frequency == 0 or i == 1 or i == n:
+                logger.info("Get PAU ids from document %d of %d" % (i, n))
+            pau_ids = xmgr.get_pau_ids_from_document(document_id)
+            pau_ids_checkpoint.write(document_id, pau_ids)
+    finally:
+        pau_ids_checkpoint.close()
     pau_ids_checkpoint = pandas.read_csv(pau_ids_csv, encoding="utf-8")
-    pau_ids = reduce(lambda m, s: m | set(s[1:-1].split(",")), pau_ids_checkpoint["Answer IDs"], set())
+    pau_ids = reduce(lambda m, s: m | deserialize_pau_ids(s), pau_ids_checkpoint["Answer IDs"], set())
     logger.info("%d PAUs total" % len(pau_ids))
     # Download the PAUs, periodically saving intermediate results.
-    corpus_csv_checkpoint = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER], 100)
-    pau_ids -= corpus_csv_checkpoint.recovered
-    n = len(pau_ids)
-    m = 0
-    logger.info("Get %d PAUs" % n)
-    for i, pau_id in enumerate(pau_ids, 1):
-        if i % 100 == 0 or i == 1 or i == n:
-            logger.info("Get PAU %d of %d" % (i, n))
-        pau = xmgr.get_pau(pau_id)
-        if pau is not None:
-            corpus_csv_checkpoint.write(pau_id, pau)
-            m += 1
-    corpus_csv_checkpoint.close()
+    corpus_csv_checkpoint = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER], checkpoint_frequency)
+    try:
+        if corpus_csv_checkpoint.recovered:
+            logger.info("Recovered %d PAUs from previous run" % len(corpus_csv_checkpoint.recovered))
+        pau_ids -= corpus_csv_checkpoint.recovered
+        n = len(pau_ids)
+        m = 0
+        logger.info("Get %d PAUs" % n)
+        for i, pau_id in enumerate(pau_ids, 1):
+            if i % checkpoint_frequency == 0 or i == 1 or i == n:
+                logger.info("Get PAU %d of %d" % (i, n))
+            pau = xmgr.get_pau(pau_id)
+            if pau is not None:
+                corpus_csv_checkpoint.write(pau_id, pau)
+                m += 1
+    finally:
+        corpus_csv_checkpoint.close()
     logger.info("%d PAU ids, %d with PAUs (%0.4f)" % (n, m, m / float(n)))
     os.remove(pau_ids_csv)
     # TODO Optionally filter corpus, e.g. to remove KB articles.
+
+
+def deserialize_pau_ids(s):
+    """
+    Deserialize PAU ids, which are written as a comma-delimited list inside curly brackets.
+
+    :param s: e.g. "{ab12, bc34, de56}"
+    :return: set(["ab12", "bc34", "de56"])
+    """
+    return set([pau_id.strip() for pau_id in s[1:-1].split(",")])
 
 
 class XmgrProject(object):

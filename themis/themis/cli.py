@@ -19,6 +19,8 @@ def run():
     xmgr_parser.add_argument("username", type=str, help="XMGR username")
     xmgr_parser.add_argument("password", type=str, help="XMGR password")
     xmgr_parser.add_argument("output_directory", type=str, help="output directory")
+    xmgr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
+                             help="how often to flush to a checkpoint file")
     xmgr_parser.add_argument("--max-docs", type=int, help="maximum number of corpus documents to download")
 
     test_set_parser = subparsers.add_parser("test-set", help="create test set from XMGR logs")
@@ -66,7 +68,8 @@ def run():
     configure_logger(args.log.upper(), "%(asctime)-15s %(levelname)-8s %(message)s")
 
     if args.command == "xmgr":
-        download_from_xmgr(args.url, args.username, args.password, args.output_directory, args.max_docs)
+        download_from_xmgr(args.url, args.username, args.password, args.output_directory, args.checkpoint_frequency,
+                           args.max_docs)
     elif args.command == "test-set":
         test_set = create_test_set_from_wea_logs(args.logs, args.n)
         print_csv(test_set)
