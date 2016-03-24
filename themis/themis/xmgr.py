@@ -83,12 +83,13 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
         if pau_ids_checkpoint.recovered:
             logger.info("Recovered %d PAU ids from previous run" % len(pau_ids_checkpoint.recovered))
         n = len(document_ids)
-        logger.info("Get PAU ids from %d documents" % n)
-        for i, document_id in enumerate(document_ids, 1):
-            if i % checkpoint_frequency == 0 or i == 1 or i == n:
-                logger.info("Get PAU ids from document %d of %d" % (i, n))
-            pau_ids = xmgr.get_pau_ids_from_document(document_id)
-            pau_ids_checkpoint.write(document_id, pau_ids)
+        if n:
+            logger.info("Get PAU ids from %d documents" % n)
+            for i, document_id in enumerate(document_ids, 1):
+                if i % checkpoint_frequency == 0 or i == 1 or i == n:
+                    logger.info("Get PAU ids from document %d of %d" % (i, n))
+                pau_ids = xmgr.get_pau_ids_from_document(document_id)
+                pau_ids_checkpoint.write(document_id, serialize_pau_ids(pau_ids))
     finally:
         pau_ids_checkpoint.close()
     pau_ids_checkpoint = pandas.read_csv(pau_ids_csv, encoding="utf-8")
@@ -117,14 +118,12 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
     # TODO Optionally filter corpus, e.g. to remove KB articles.
 
 
-def deserialize_pau_ids(s):
-    """
-    Deserialize PAU ids, which are written as a comma-delimited list inside curly brackets.
+def serialize_pau_ids(pau_ids):
+    return ",".join(sorted(pau_ids))
 
-    :param s: e.g. "{ab12, bc34, de56}"
-    :return: set(["ab12", "bc34", "de56"])
-    """
-    return set([pau_id.strip() for pau_id in s[1:-1].split(",")])
+
+def deserialize_pau_ids(s):
+    return set(s.split(","))
 
 
 class XmgrProject(object):
