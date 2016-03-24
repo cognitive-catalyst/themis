@@ -71,3 +71,19 @@ def fix_confidence_ranges(wea_logs):
         index = wea_logs[USER_EXPERIENCE] == user_experience
         wea_logs.loc[index, CONFIDENCE] = wea_logs[index][CONFIDENCE].div(m[user_experience])
     return wea_logs
+
+
+def augment_system_logs(wea_logs, annotation_assist):
+    """
+    Add In Purview and Annotation Score information to system usage logs
+
+    :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
+    :param annotation_assist: Annotation Assist file
+    :return: WEA logs with additional columns
+    """
+    wea_logs[ANSWER] = wea_logs[ANSWER].str.replace("\n", "")
+    augmented = pandas.merge(wea_logs, annotation_assist, on=(QUESTION, ANSWER), how="left")
+    n = len(wea_logs[[QUESTION, ANSWER]].drop_duplicates())
+    m = len(annotation_assist)
+    logger.info("%d unique question/answer pairs, %d judgments (%0.3f)" % (n, m, m / float(n)))
+    return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})

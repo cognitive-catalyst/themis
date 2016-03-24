@@ -2,9 +2,9 @@ import argparse
 
 from analyze import AnnotationAssistFileType, mark_annotation_assist_correct, \
     add_judgements_and_frequencies_to_qa_pairs, \
-    roc_curve, precision_curve, plot_curve, augment_system_logs
+    roc_curve, precision_curve, plot_curve
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
-from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE
+from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs
 from wea import wea_test, create_test_set_from_wea_logs
 from xmgr import download_from_xmgr
 
@@ -97,8 +97,7 @@ def run():
         logger.info(
             "Correct answer confidence range %0.3f - %0.3f" % (correct_confidence.min(), correct_confidence.max()))
     elif args.command == "augment":
-        judgements = add_judgements_and_frequencies_to_qa_pairs(args.answers, args.judgements, args.test_set)
-        augmented_logs = augment_system_logs(args.logs, judgements)
+        augmented_logs = augment_system_logs(args.logs, args.judgements)
         print_csv(augmented_logs)
 
 

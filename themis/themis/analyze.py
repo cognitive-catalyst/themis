@@ -3,7 +3,6 @@ import numpy
 import pandas
 
 from themis import QUESTION, CORRECT, CsvFileType, IN_PURVIEW, ANSWER, CONFIDENCE, FREQUENCY
-from wea import TOP_ANSWER_TEXT
 
 THRESHOLD = "Threshold"
 TRUE_POSITIVE_RATE = "True Positive Rate"
@@ -112,13 +111,7 @@ def mark_annotation_assist_correct(annotation_assist, judgement_threshold):
 
     :param annotation_assist: Annotation Assist file
     :param judgement_threshold: threshold above which an answer is deemed correct
-    :return: dataframe with (Answer, Correct) columns
+    :return: dataframe with a boolean Correct column
     """
     annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgement_threshold
-    annotation_assist = annotation_assist.drop(ANNOTATION_SCORE, axis="columns")
-    return annotation_assist[[QUESTION, ANSWER, IN_PURVIEW, CORRECT]]
-
-
-def augment_system_logs(wea_logs, judgements):
-    augmented_logs = pandas.merge(wea_logs, judgements, on=(QUESTION, ANSWER))
-    return augmented_logs.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT}).set_index("QuestionId")
+    return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")
