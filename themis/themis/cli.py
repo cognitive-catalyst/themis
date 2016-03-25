@@ -3,6 +3,7 @@ import argparse
 from analyze import AnnotationAssistFileType, mark_annotation_assist_correct, \
     add_judgements_and_frequencies_to_qa_pairs, \
     roc_curve, precision_curve, plot_curve
+from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs
 from wea import wea_test, create_test_set_from_wea_logs
@@ -38,6 +39,13 @@ def run():
                                 {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER,
                                  TOP_ANSWER_CONFIDENCE: CONFIDENCE}),
                             help="QuestionsData.csv log file from XMGR")
+
+    solr_parser = subparsers.add_parser("solr", help="answer questions with solr")
+    solr_parser.add_argument("url", type=str, help="solr URL")
+    solr_parser.add_argument("test_set", type=CsvFileType(), help="test set")
+    solr_parser.add_argument("output", type=str, help="output filename")
+    solr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
+                             help="how often to flush to a checkpoint file")
 
     curves_parser = subparsers.add_parser("curves", help="plot curves")
     curves_parser.add_argument("type", choices=["roc", "precision"], help="type of curve to create")
@@ -76,6 +84,8 @@ def run():
     elif args.command == "wea":
         results = wea_test(args.test_set, args.logs)
         print_csv(results)
+    elif args.command == "solr":
+        answer_questions(Solr(args.url), args.test_set, args.output, args.checkpoint_frequency)
     elif args.command == "curves":
         data = add_judgements_and_frequencies_to_qa_pairs(args.answers, args.judgements, args.test_set)
         data = mark_annotation_assist_correct(data, args.judgement_threshold)

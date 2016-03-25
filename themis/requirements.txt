@@ -1,3 +1,4 @@
+solrpy
 numpy
 matplotlib
 requests
