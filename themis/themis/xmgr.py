@@ -115,7 +115,6 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
         corpus_csv_checkpoint.close()
     logger.info("%d PAU ids, %d with PAUs (%0.4f)" % (n, m, m / float(n)))
     os.remove(pau_ids_csv)
-    # TODO Optionally filter corpus, e.g. to remove KB articles.
 
 
 def serialize_pau_ids(pau_ids):

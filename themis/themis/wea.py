@@ -1,6 +1,6 @@
 import pandas
 
-from themis import logger, QUESTION, CONFIDENCE, FREQUENCY, ANSWER
+from themis import logger, QUESTION, CONFIDENCE, FREQUENCY, ANSWER, ANSWER_ID
 
 # Column headers in WEA logs
 QUESTION_TEXT = "QuestionText"
@@ -87,3 +87,17 @@ def augment_system_logs(wea_logs, annotation_assist):
     m = len(annotation_assist)
     logger.info("%d unique question/answer pairs, %d judgments (%0.3f)" % (n, m, m / float(n)))
     return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})
+
+
+def filter_corpus(corpus, max_size):
+    """
+    Remove corpus entries above a specified size
+
+    :param corpus: corpus dataframe containing "Answer Id" and "Answer" columns
+    :param max_size: maximum allowed Answer size in characters
+    """
+    if max_size is not None:
+        filtered = corpus[corpus[ANSWER].str.len() <= max_size]
+        logger.info("Filtered %d answers over size %d" % (len(corpus) - len(filtered), max_size))
+        corpus = filtered
+    return corpus.set_index(ANSWER_ID)

@@ -5,7 +5,8 @@ from analyze import AnnotationAssistFileType, mark_annotation_assist_correct, \
     roc_curve, precision_curve, plot_curve
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
-from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs
+from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs, \
+    filter_corpus
 from wea import wea_test, create_test_set_from_wea_logs
 from xmgr import download_from_xmgr
 
@@ -23,6 +24,10 @@ def run():
     xmgr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
                              help="how often to flush to a checkpoint file")
     xmgr_parser.add_argument("--max-docs", type=int, help="maximum number of corpus documents to download")
+
+    filter_corpus_parser = subparsers.add_parser("filter", help="filter the corpus downloaded from XMGR")
+    filter_corpus_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
+    filter_corpus_parser.add_argument("--max-size", type=int, help="maximum size of answer text")
 
     test_set_parser = subparsers.add_parser("test-set", help="create test set from XMGR logs")
     test_set_parser.add_argument("logs",
@@ -78,6 +83,9 @@ def run():
     if args.command == "xmgr":
         download_from_xmgr(args.url, args.username, args.password, args.output_directory, args.checkpoint_frequency,
                            args.max_docs)
+    elif args.command == "filter":
+        corpus = filter_corpus(args.corpus, args.max_size)
+        print_csv(corpus)
     elif args.command == "test-set":
         test_set = create_test_set_from_wea_logs(args.logs, args.n)
         print_csv(test_set)
