@@ -1,8 +1,10 @@
 import argparse
+import json
 
 from analyze import AnnotationAssistFileType, mark_annotation_assist_correct, \
     add_judgements_and_frequencies_to_qa_pairs, \
     roc_curve, precision_curve, plot_curve
+from nlc import classifier_list, NLC, train_nlc
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs, \
@@ -56,6 +58,27 @@ def run():
     solr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
                              help="how often to flush to a checkpoint file")
     solr_parser.set_defaults(func=solr_handler)
+
+    nlc_arguments = argparse.ArgumentParser(add_help=False)
+    nlc_arguments.add_argument("url", help="NLC url")
+    nlc_arguments.add_argument("username", help="NLC username")
+    nlc_arguments.add_argument("password", help="NLC password")
+
+    nlc_parser = subparsers.add_parser("nlc", help="answer questions with NLC")
+    nlc_subparsers = nlc_parser.add_subparsers(help="NLC actions")
+    nlc_train = nlc_subparsers.add_parser("train", parents=[nlc_arguments], help="train an NLC model")
+    nlc_train.add_argument("truth", type=CsvFileType(), help="ground truth")
+    nlc_train.add_argument("name", help="classifier name")
+    nlc_train.set_defaults(func=nlc_train_handler)
+    nlc_use = nlc_subparsers.add_parser("use", parents=[nlc_arguments], help="use NLC model")
+    nlc_use.add_argument("classifier", help="classifier id")
+    nlc_use.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
+    nlc_use.add_argument("output", type=str, help="output filename")
+    nlc_use.add_argument("--checkpoint-frequency", type=int, default=100,
+                         help="how often to flush to a checkpoint file")
+    nlc_use.set_defaults(func=nlc_use_handler)
+    nlc_list = nlc_subparsers.add_parser("list", parents=[nlc_arguments], help="list NLC models")
+    nlc_list.set_defaults(func=nlc_list_handler)
 
     curves_parser = subparsers.add_parser("curves", help="plot curves")
     curves_parser.add_argument("type", choices=["roc", "precision"], help="type of curve to create")
@@ -115,13 +138,28 @@ def solr_handler(args):
     answer_questions(Solr(args.url), args.test_set, args.output, args.checkpoint_frequency)
 
 
+def nlc_train_handler(args):
+    print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
+
+
+def nlc_use_handler(args):
+    n = NLC(args.url, args.username, args.password, args.classifier)
+    answer_questions(n, args.test_set, args.output, args.checkpoint_frequency)
+
+
+def nlc_list_handler(args):
+    print json.dumps(classifier_list(args.url, args.username, args.password), indent=4)
+
+
 def curves_handler(args):
     data = add_judgements_and_frequencies_to_qa_pairs(args.answers, args.judgements, args.test_set)
     data = mark_annotation_assist_correct(data, args.judgement_threshold)
     if args.type == "roc":
         curve = roc_curve(data)
-    else:  # args.type == "precision":
+    elif args.type == "precision":
         curve = precision_curve(data)
+    else:
+        raise Exception("Invalid curve type %s" % args.type)
     print_csv(curve)
 
 
