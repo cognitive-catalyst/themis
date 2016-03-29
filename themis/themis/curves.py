@@ -2,19 +2,13 @@ import matplotlib.pyplot as plt
 import numpy
 import pandas
 
-from themis import QUESTION, CORRECT, CsvFileType, IN_PURVIEW, ANSWER, CONFIDENCE, FREQUENCY
+from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY
 
 THRESHOLD = "Threshold"
 TRUE_POSITIVE_RATE = "True Positive Rate"
 FALSE_POSITIVE_RATE = "False Positive Rate"
 PRECISION = "Precision"
 ATTEMPTED = "Attempted"
-
-# Annotation Assist column names
-QUESTION_TEXT = "Question_Text"
-IS_IN_PURVIEW = "Is_In_Purview"
-SYSTEM_ANSWER = "System_Answer"
-ANNOTATION_SCORE = "Annotation_Score"
 
 
 def roc_curve(judgements):
@@ -80,38 +74,3 @@ def plot_curve(xs, ys, x_label, y_label):
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.show()
-
-
-def add_judgements_and_frequencies_to_qa_pairs(qa_pairs, judgements, question_frequencies):
-    # The Annotation Assist tool strips newlines, so remove them from the answer text in the system output as well.
-    qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
-    qa_pairs = pandas.merge(qa_pairs, judgements, on=(QUESTION, ANSWER)).dropna()
-    return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)
-
-
-class AnnotationAssistFileType(CsvFileType):
-    """
-    Read the file produced by the `Annotation Assist <https://github.com/cognitive-catalyst/annotation-assist>` tool.
-    """
-
-    def __init__(self):
-        super(self.__class__, self).__init__([QUESTION_TEXT, IS_IN_PURVIEW, SYSTEM_ANSWER, ANNOTATION_SCORE],
-                                             {QUESTION_TEXT: QUESTION, IS_IN_PURVIEW: IN_PURVIEW,
-                                              SYSTEM_ANSWER: ANSWER})
-
-    def __call__(self, filename):
-        annotation_assist = super(self.__class__, self).__call__(filename)
-        annotation_assist[IN_PURVIEW] = annotation_assist[IN_PURVIEW].astype("bool")
-        return annotation_assist[[QUESTION, ANSWER, IN_PURVIEW, ANNOTATION_SCORE]]
-
-
-def mark_annotation_assist_correct(annotation_assist, judgement_threshold):
-    """
-    Convert the annotation score column to a boolean correct column by applying a threshold.
-
-    :param annotation_assist: Annotation Assist file
-    :param judgement_threshold: threshold above which an answer is deemed correct
-    :return: dataframe with a boolean Correct column
-    """
-    annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgement_threshold
-    return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")

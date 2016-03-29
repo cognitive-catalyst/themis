@@ -1,10 +1,9 @@
 import argparse
 import json
 
-from analyze import AnnotationAssistFileType, mark_annotation_assist_correct, \
-    add_judgements_and_frequencies_to_qa_pairs, \
-    roc_curve, precision_curve, plot_curve
-from annotate import create_annotation_assist_files
+from annotate import create_annotation_assist_files, AnnotationAssistFileType, \
+    add_judgements_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
+from curves import roc_curve, precision_curve, plot_curve
 from nlc import classifier_list, NLC, train_nlc
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
@@ -16,7 +15,7 @@ from xmgr import download_from_xmgr
 
 def run():
     parser = argparse.ArgumentParser(description="Themis analysis toolkit")
-    parser.add_argument('--log', default='INFO', help='logging level')
+    parser.add_argument("--log", default="INFO", help="logging level")
     subparsers = parser.add_subparsers(help="command to run")
 
     xmgr_parser = subparsers.add_parser("xmgr", help="download information from XMGR")
