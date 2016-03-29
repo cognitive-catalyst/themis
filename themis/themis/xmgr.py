@@ -5,7 +5,7 @@ import os
 import pandas
 import requests
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ANSWER
+from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ANSWER, TITLE, FILENAME, QUESTION_ID
 
 
 def download_from_xmgr(url, username, password, output_directory, checkpoint_frequency, max_docs):
@@ -52,24 +52,29 @@ def download_truth(xmgr, output_directory):
 
 
 def get_truth_from_mapped_questions(mapped_questions):
+    def get_pau_mapping(question):
+        if "predefinedAnswerUnit" in question:
+            return question["predefinedAnswerUnit"]
+        elif "mappedQuestion" in question:
+            mapped_question = questions[question["mappedQuestion"]["id"]]
+            return get_pau_mapping(mapped_question)
+        else:
+            return None
+
+    unmapped = 0
     # Index the questions by their question id so that mapped questions can be looked up.
     questions = dict([(question["id"], question) for question in mapped_questions])
-    # Read ground truth from questions.
-    answers = {}
-    off_topic = 0
-    unmapped = 0
-    # Answered questions are either mapped to a PAU mapped to another question that is mapped to a PAU.
     for question in questions.values():
-        if "predefinedAnswerUnit" in question:
-            answers[question["text"]] = question["predefinedAnswerUnit"]
-        elif "mappedQuestion" in question:
-            answers[question["text"]] = questions[question["mappedQuestion"]["id"]]
-        elif question["offTopic"]:
-            off_topic += 1
-        else:
+        question[ANSWER_ID] = get_pau_mapping(question)
+        if question[ANSWER_ID] is None:
             unmapped += 1
-    truth = pandas.DataFrame.from_dict({QUESTION: answers.keys(), ANSWER_ID: answers.values()}).set_index(QUESTION)
-    logger.info("%d mapped, %d unmapped, %d off-topic" % (len(truth), unmapped, off_topic))
+    questions = [q for q in questions.values() if q[ANSWER_ID] is not None]
+    question_ids = [q["id"] for q in questions]
+    question_text = [q["text"] for q in questions]
+    answer_id = [q[ANSWER_ID] for q in questions]
+    truth = pandas.DataFrame.from_dict({QUESTION_ID: question_ids, QUESTION: question_text, ANSWER_ID: answer_id})
+    truth = truth[[QUESTION_ID, QUESTION, ANSWER_ID]].set_index(QUESTION_ID)
+    logger.info("%d mapped, %d unmapped" % (len(truth), unmapped))
     return truth
 
 
@@ -89,7 +94,7 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
     try:
         document_ids -= pau_ids_checkpoint.recovered
         if pau_ids_checkpoint.recovered:
-            logger.info("Recovered %d PAU ids from previous run" % len(pau_ids_checkpoint.recovered))
+            logger.info("Recovered %d document ids from previous run" % len(pau_ids_checkpoint.recovered))
         n = len(document_ids)
         if n:
             logger.info("Get PAU ids from %d documents" % n)
@@ -104,7 +109,7 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
     pau_ids = reduce(lambda m, s: m | deserialize_pau_ids(s), pau_ids_checkpoint["Answer IDs"], set())
     logger.info("%d PAUs total" % len(pau_ids))
     # Download the PAUs, periodically saving intermediate results.
-    corpus_csv_checkpoint = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER], checkpoint_frequency)
+    corpus_csv_checkpoint = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER, TITLE, FILENAME], checkpoint_frequency)
     try:
         if corpus_csv_checkpoint.recovered:
             logger.info("Recovered %d PAUs from previous run" % len(corpus_csv_checkpoint.recovered))
@@ -117,7 +122,10 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
                 logger.info("Get PAU %d of %d" % (i, n))
             pau = xmgr.get_pau(pau_id)
             if pau is not None:
-                corpus_csv_checkpoint.write(pau_id, pau)
+                answer_text = pau["responseMarkup"]
+                title = pau["title"]
+                filename = pau["sourceName"]
+                corpus_csv_checkpoint.write(pau_id, answer_text, title, filename)
                 m += 1
     finally:
         corpus_csv_checkpoint.close()
@@ -167,7 +175,7 @@ class XmgrProject(object):
     def get_pau(self, pau_id):
         hits = self.get(os.path.join("wcea/api/GroundTruth/paus", pau_id))["hits"]
         if hits:
-            pau = hits[0]["responseMarkup"]
+            pau = hits[0]
         else:
             pau = None
         return pau

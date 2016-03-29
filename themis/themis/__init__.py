@@ -5,8 +5,11 @@ import pandas
 logger = logging.getLogger(__name__)
 
 QUESTION = "Question"
+QUESTION_ID = "Question Id"
 ANSWER = "Answer"
 ANSWER_ID = "Answer Id"
+TITLE = "Title"
+FILENAME = "Filename"
 CONFIDENCE = "Confidence"
 FREQUENCY = "Frequency"
 CORRECT = "Correct"
