@@ -33,22 +33,27 @@ def download_from_xmgr(url, username, password, output_directory, checkpoint_fre
     except OSError:
         pass
     xmgr = XmgrProject(url, username, password)
-    truth_csv = os.path.join(output_directory, "truth.csv")
-    if not os.path.isfile(truth_csv):
-        logger.info("Get truth from %s" % xmgr)
-        all_questions, truth = download_truth(xmgr)
-        with open(os.path.join(output_directory, "truth.json"), "w") as f:
-            json.dump(all_questions, f, indent=2)
-        to_csv(truth_csv, truth)
-    logger.info("Get corpus from %s" % xmgr)
+    download_truth(xmgr, output_directory)
     download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs)
 
 
-def download_truth(xmgr):
+def download_truth(xmgr, output_directory):
+    truth_json = os.path.join(output_directory, "truth.json")
+    truth_csv = os.path.join(output_directory, "truth.csv")
+    if os.path.isfile(truth_json) and os.path.isfile(truth_csv):
+        logger.info("Truth already downloaded")
+        return
     # Get all the questions that are not in a REJECTED state.
-    all_questions = [question for question in xmgr.get_questions() if not question["state"] == "REJECTED"]
-    # Indexed the questions by their question id so that mapped questions can be looked up.
-    questions = dict([(question["id"], question) for question in all_questions])
+    mapped_questions = [question for question in xmgr.get_questions() if not question["state"] == "REJECTED"]
+    with open(truth_json, "w") as f:
+        json.dump(mapped_questions, f, indent=2)
+    truth = get_truth_from_mapped_questions(mapped_questions)
+    to_csv(truth_csv, truth)
+
+
+def get_truth_from_mapped_questions(mapped_questions):
+    # Index the questions by their question id so that mapped questions can be looked up.
+    questions = dict([(question["id"], question) for question in mapped_questions])
     # Read ground truth from questions.
     answers = {}
     off_topic = 0
@@ -63,16 +68,19 @@ def download_truth(xmgr):
             off_topic += 1
         else:
             unmapped += 1
-    ground_truth = pandas.DataFrame.from_dict(
-        {QUESTION: answers.keys(), ANSWER_ID: answers.values()}).set_index(QUESTION)
-    logger.info("%d mapped, %d unmapped, %d off-topic" % (len(ground_truth), unmapped, off_topic))
-    return all_questions, ground_truth
+    truth = pandas.DataFrame.from_dict({QUESTION: answers.keys(), ANSWER_ID: answers.values()}).set_index(QUESTION)
+    logger.info("%d mapped, %d unmapped, %d off-topic" % (len(truth), unmapped, off_topic))
+    return truth
 
 
 def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
     pau_ids_csv = os.path.join(output_directory, "pau_ids.csv")
     corpus_csv = os.path.join(output_directory, "corpus.csv")
-    # Get all documents from XMGR
+    if not os.path.isfile(pau_ids_csv) and os.path.isfile(corpus_csv):
+        logger.info("Corpus already downloaded")
+        return
+    logger.info("Get corpus from %s" % xmgr)
+    # Get the documents from XMGR
     document_ids = set(document["id"] for document in xmgr.get_documents())
     if max_docs is not None:
         document_ids = set(list(document_ids)[:max_docs])
