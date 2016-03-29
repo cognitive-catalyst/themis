@@ -5,7 +5,8 @@ import os
 import pandas
 import requests
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ANSWER, TITLE, FILENAME, QUESTION_ID
+from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ensure_directory_exists, ANSWER, TITLE, \
+    FILENAME, QUESTION_ID
 
 
 def download_from_xmgr(url, username, password, output_directory, checkpoint_frequency, max_docs):
@@ -28,10 +29,7 @@ def download_from_xmgr(url, username, password, output_directory, checkpoint_fre
     :checkpoint_frequency: how often to write intermediate results to a checkpoint file
     :param max_docs: maximum number of corpus documents to download, if None, download them all
     """
-    try:
-        os.makedirs(output_directory)
-    except OSError:
-        pass
+    ensure_directory_exists(output_directory)
     xmgr = XmgrProject(url, username, password)
     download_truth(xmgr, output_directory)
     download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs)

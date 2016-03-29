@@ -4,6 +4,7 @@ import json
 from analyze import AnnotationAssistFileType, mark_annotation_assist_correct, \
     add_judgements_and_frequencies_to_qa_pairs, \
     roc_curve, precision_curve, plot_curve
+from annotate import create_annotation_assist_files
 from nlc import classifier_list, NLC, train_nlc
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
@@ -80,6 +81,13 @@ def run():
     nlc_list = nlc_subparsers.add_parser("list", parents=[nlc_arguments], help="list NLC models")
     nlc_list.set_defaults(func=nlc_list_handler)
 
+    annotate_parser = subparsers.add_parser("annotate", help="work with annotation assist")
+    annotate_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
+    annotate_parser.add_argument("truth", type=CsvFileType(), help="truth file")
+    annotate_parser.add_argument("answers", type=argparse.FileType(), nargs="+", help="answered questions file")
+    annotate_parser.add_argument("--output", default=".", help="output directory")
+    annotate_parser.set_defaults(func=annotate_handler)
+
     curves_parser = subparsers.add_parser("curves", help="plot curves")
     curves_parser.add_argument("type", choices=["roc", "precision"], help="type of curve to create")
     curves_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
@@ -149,6 +157,10 @@ def nlc_use_handler(args):
 
 def nlc_list_handler(args):
     print json.dumps(classifier_list(args.url, args.username, args.password), indent=4)
+
+
+def annotate_handler(args):
+    create_annotation_assist_files(args.corpus, args.truth, args.answers, args.output)
 
 
 def curves_handler(args):

@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pandas
 
@@ -80,3 +81,10 @@ def configure_logger(level, format):
     h = logging.StreamHandler()
     h.setFormatter(logging.Formatter(format))
     logger.addHandler(h)
+
+
+def ensure_directory_exists(directory):
+    try:
+        os.makedirs(directory)
+    except OSError:
+        pass
