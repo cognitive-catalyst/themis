@@ -83,7 +83,7 @@ def run():
     annotate_parser = subparsers.add_parser("annotate", help="work with annotation assist")
     annotate_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
     annotate_parser.add_argument("truth", type=CsvFileType(), help="truth file")
-    annotate_parser.add_argument("answers", type=argparse.FileType(), nargs="+", help="answered questions file")
+    annotate_parser.add_argument("answers", type=CsvFileType(), nargs="+", help="answered questions file")
     annotate_parser.add_argument("--output", default=".", help="output directory")
     annotate_parser.set_defaults(func=annotate_handler)
 
@@ -155,7 +155,7 @@ def nlc_use_handler(args):
 
 
 def nlc_list_handler(args):
-    print json.dumps(classifier_list(args.url, args.username, args.password), indent=4)
+    print(json.dumps(classifier_list(args.url, args.username, args.password), indent=4))
 
 
 def annotate_handler(args):
