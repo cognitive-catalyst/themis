@@ -63,7 +63,11 @@ class AnnotationAssistFileType(CsvFileType):
 def add_judgements_and_frequencies_to_qa_pairs(qa_pairs, judgements, question_frequencies):
     # The Annotation Assist tool strips newlines, so remove them from the answer text in the system output as well.
     qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
-    qa_pairs = pandas.merge(qa_pairs, judgements, on=(QUESTION, ANSWER)).dropna()
+    qa_pairs = pandas.merge(qa_pairs, judgements, on=(QUESTION, ANSWER), how="left")
+    missing = sum(qa_pairs[ANNOTATION_SCORE].isnull())
+    if missing:
+        logger.warn("%d unannotated Q&A pairs out of %d" % (missing, len(qa_pairs)))
+    qa_pairs = qa_pairs.dropna()
     return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)
 
 
