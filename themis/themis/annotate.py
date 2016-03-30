@@ -47,13 +47,14 @@ def convert_ground_truth(corpus, truth):
 
 
 def convert_answers(systems):
-    systems = pandas.concat(systems)
+    systems = pandas.concat(systems).drop_duplicates([QUESTION, ANSWER])
     systems[DATE_TIME] = "06052015:061049:UTC"
     # noinspection PyTypeChecker
     logger.info("%d total Q&A pairs" % len(systems))
     systems = systems.rename(
         columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT, CONFIDENCE: TOP_ANSWER_CONFIDENCE})
-    return systems[[DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE]]
+    systems = systems[[DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE]]
+    return systems.sort_values([QUESTION_TEXT, TOP_ANSWER_CONFIDENCE])
 
 
 class AnnotationAssistFileType(CsvFileType):
