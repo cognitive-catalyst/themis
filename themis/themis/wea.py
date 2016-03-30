@@ -46,11 +46,13 @@ def wea_test(test_set, wea_logs):
     :return: DataFrame with Question, Answer, and Confidence
     """
     wea_logs = fix_confidence_ranges(wea_logs)
-    test_set = pandas.merge(test_set, wea_logs, on=QUESTION)
-    missing_answers = test_set[test_set[ANSWER].isnull()]
+    wea_logs = wea_logs.drop_duplicates(QUESTION)
+    answers = pandas.merge(test_set, wea_logs, on=QUESTION)
+    missing_answers = answers[answers[ANSWER].isnull()]
     if len(missing_answers):
         logger.warning("%d questions without answers" % len(missing_answers))
-    return test_set[[QUESTION, ANSWER, CONFIDENCE]].sort_values(QUESTION).set_index(QUESTION)
+    logger.info("Answered %d questions" % len(answers))
+    return answers[[QUESTION, ANSWER, CONFIDENCE]].sort_values(QUESTION).set_index(QUESTION)
 
 
 def fix_confidence_ranges(wea_logs):
