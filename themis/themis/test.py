@@ -42,7 +42,7 @@ class Solr(object):
         n = len(r)
         logger.debug("%d results" % n)
         if n:
-            answer = r[0][ANSWER]
+            answer = r[0][ANSWER][0]
             confidence = r[0]["score"]
         else:
             answer = None
