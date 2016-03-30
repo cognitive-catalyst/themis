@@ -39,6 +39,7 @@ class CsvFileType(object):
         csv = pandas.read_csv(filename, usecols=self.columns, encoding="utf-8")
         if self.rename is not None:
             csv = csv.rename(columns=self.rename)
+        csv.filename = filename
         return csv
 
 
