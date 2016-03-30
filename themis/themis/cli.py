@@ -82,7 +82,6 @@ def run():
 
     annotate_parser = subparsers.add_parser("annotate", help="work with annotation assist")
     annotate_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
-    annotate_parser.add_argument("truth", type=CsvFileType(), help="truth file")
     annotate_parser.add_argument("answers", type=CsvFileType(), nargs="+", help="answered questions file")
     annotate_parser.add_argument("--output", default=".", help="output directory")
     annotate_parser.set_defaults(func=annotate_handler)
@@ -159,7 +158,7 @@ def nlc_list_handler(args):
 
 
 def annotate_handler(args):
-    create_annotation_assist_files(args.corpus, args.truth, args.answers, args.output)
+    create_annotation_assist_files(args.corpus, args.answers, args.output)
 
 
 def curves_handler(args):

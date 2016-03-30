@@ -4,7 +4,7 @@ import os
 import pandas
 
 from themis import ensure_directory_exists, ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, logger, CONFIDENCE, to_csv, \
-    CsvFileType, IN_PURVIEW, CORRECT, QUESTION_ID
+    CsvFileType, IN_PURVIEW, CORRECT
 
 QUESTION_TEXT = "Question_Text"
 IS_IN_PURVIEW = "Is_In_Purview"
@@ -18,14 +18,12 @@ ANS_SHORT = "ANS_SHORT"
 IS_ON_TOPIC = "IS_ON_TOPIC"
 
 
-def create_annotation_assist_files(corpus, truth, answers, output_directory):
+def create_annotation_assist_files(corpus, answers, output_directory):
     annotation_assist_corpus = convert_corpus(corpus)
-    annotation_assist_truth = convert_ground_truth(corpus, truth)
     annotation_assist_answers = convert_answers(answers)
     ensure_directory_exists(output_directory)
     with open(os.path.join(output_directory, "annotation_assist_corpus.json"), "w") as f:
         json.dump(annotation_assist_corpus, f, indent=2)
-    to_csv(os.path.join(output_directory, "annotation_assist_truth.csv"), annotation_assist_truth)
     to_csv(os.path.join(output_directory, "annotation_assist_answers.csv"), annotation_assist_answers, index=False)
 
 
@@ -33,17 +31,6 @@ def convert_corpus(corpus):
     corpus["splitPauTitle"] = corpus[TITLE].apply(lambda title: title.split(":"))
     corpus = corpus.rename(columns={ANSWER: "text", ANSWER_ID: "pauId", TITLE: "title", FILENAME: "fileName"})
     return json.loads(corpus.to_json(orient="records"), encoding="utf-8")
-
-
-def convert_ground_truth(corpus, truth):
-    corpus = corpus[[ANSWER, ANSWER_ID]]
-    corpus = corpus.rename(columns={ANSWER: ANS_LONG})
-    truth = pandas.merge(truth, corpus, on=ANSWER_ID)
-    truth = truth.rename(columns={QUESTION: "QUESTION", QUESTION_ID: "QUESTION_ID"})
-    truth[ANS_SHORT] = None
-    truth[IS_ON_TOPIC] = True
-    truth = truth.drop([ANSWER_ID], axis="columns")
-    return truth[["QUESTION_ID", "QUESTION", ANS_LONG, IS_ON_TOPIC, ANS_SHORT]].set_index("QUESTION_ID")
 
 
 def convert_answers(systems):
