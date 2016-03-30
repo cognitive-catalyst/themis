@@ -11,6 +11,13 @@ def classifier_list(url, username, password):
     return connection.list()["classifiers"]
 
 
+def classifier_status(url, username, password, classifier_ids):
+    n = NaturalLanguageClassifier(url=url, username=username, password=password)
+    for classifier_id in classifier_ids:
+        status = n.status(classifier_id)
+        print("%s: %s" % (status["status"], status["status_description"]))
+
+
 def remove_classifiers(url, username, password, classifier_ids):
     n = NaturalLanguageClassifier(url=url, username=username, password=password)
     for classifier_id in classifier_ids:
@@ -21,6 +28,7 @@ def train_nlc(url, username, password, truth, name):
     logger.info("Train  model %s with %d instances" % (name, len(truth)))
     with tempfile.TemporaryFile() as training_file:
         to_csv(training_file, truth[[QUESTION, ANSWER_ID]], header=False, index=False)
+        training_file.seek(0)
         nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
         r = nlc.create(training_data=training_file, name=name)
         logger.info((json.dumps(r, indent=2)))
