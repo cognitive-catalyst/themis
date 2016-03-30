@@ -4,7 +4,7 @@ import json
 from annotate import create_annotation_assist_files, AnnotationAssistFileType, \
     add_judgements_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
 from curves import roc_curve, precision_curve, plot_curve
-from nlc import classifier_list, NLC, train_nlc
+from nlc import classifier_list, NLC, train_nlc, remove_classifiers
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs, \
@@ -79,6 +79,9 @@ def run():
     nlc_use.set_defaults(func=nlc_use_handler)
     nlc_list = nlc_subparsers.add_parser("list", parents=[nlc_arguments], help="list NLC models")
     nlc_list.set_defaults(func=nlc_list_handler)
+    nlc_delete = nlc_subparsers.add_parser("delete", parents=[nlc_arguments], help="delete an NLC model")
+    nlc_delete.add_argument("classifiers", nargs="+", help="classifier ids")
+    nlc_delete.set_defaults(func=nlc_delete_handler)
 
     annotate_parser = subparsers.add_parser("annotate", help="work with annotation assist")
     annotate_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
@@ -155,6 +158,10 @@ def nlc_use_handler(args):
 
 def nlc_list_handler(args):
     print(json.dumps(classifier_list(args.url, args.username, args.password), indent=4))
+
+
+def nlc_delete_handler(args):
+    remove_classifiers(args.url, args.username, args.password, args.classifiers)
 
 
 def annotate_handler(args):

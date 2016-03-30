@@ -11,6 +11,12 @@ def classifier_list(url, username, password):
     return connection.list()["classifiers"]
 
 
+def remove_classifiers(url, username, password, classifier_ids):
+    n = NaturalLanguageClassifier(url=url, username=username, password=password)
+    for classifier_id in classifier_ids:
+        n.remove(classifier_id)
+
+
 def train_nlc(url, username, password, truth, name):
     logger.info("Train  model %s with %d instances" % (name, len(truth)))
     with tempfile.TemporaryFile() as training_file:
@@ -22,6 +28,11 @@ def train_nlc(url, username, password, truth, name):
 
 
 class NLC(object):
+    """
+    Wrapper to a Natural Language Classifier via the
+    `Watson developer cloud Python SDK <https://github.com/watson-developer-cloud/python-sdk>`.
+    """
+
     def __init__(self, url, username, password, classifier_id):
         self.nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
         self.classifier_id = classifier_id
