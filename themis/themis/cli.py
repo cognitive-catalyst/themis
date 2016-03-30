@@ -16,7 +16,11 @@ from xmgr import download_from_xmgr
 def run():
     parser = argparse.ArgumentParser(description="Themis analysis toolkit")
     parser.add_argument("--log", default="INFO", help="logging level")
-    subparsers = parser.add_subparsers(help="command to run")
+    subparsers = parser.add_subparsers(title="Q&A System analysis",
+                                       description="Commands to download information from XMGR, answer questions " +
+                                                   "using various Q&A systems, annotate the answers and analyze " +
+                                                   "the results",
+                                       help="command to run")
 
     xmgr_parser = subparsers.add_parser("xmgr", help="download information from XMGR")
     xmgr_parser.add_argument("url", type=str, help="XMGR url")
@@ -65,7 +69,8 @@ def run():
     nlc_arguments.add_argument("password", help="NLC password")
 
     nlc_parser = subparsers.add_parser("nlc", help="answer questions with NLC")
-    nlc_subparsers = nlc_parser.add_subparsers(help="NLC actions")
+    nlc_subparsers = nlc_parser.add_subparsers(title="Natural Language Classifier",
+                                               description="train, use, and manage NLC models", help="NLC actions")
     nlc_train = nlc_subparsers.add_parser("train", parents=[nlc_arguments], help="train an NLC model")
     nlc_train.add_argument("truth", type=CsvFileType(), help="ground truth")
     nlc_train.add_argument("name", help="classifier name")
