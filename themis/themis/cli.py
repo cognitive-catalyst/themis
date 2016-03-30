@@ -6,7 +6,8 @@ from annotate import create_annotation_assist_files, AnnotationAssistFileType, \
 from curves import roc_curve, precision_curve, plot_curves
 from nlc import classifier_list, NLC, train_nlc, remove_classifiers, classifier_status
 from test import answer_questions, Solr
-from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
+from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT, \
+    ANSWER_ID
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs, \
     filter_corpus
 from wea import wea_test, create_test_set_from_wea_logs
@@ -80,6 +81,7 @@ def run():
     nlc_use.add_argument("classifier", help="classifier id")
     nlc_use.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
     nlc_use.add_argument("output", type=str, help="output filename")
+    nlc_use.add_argument("corpus", type=CsvFileType([ANSWER, ANSWER_ID]), help="corpus file")
     nlc_use.add_argument("--checkpoint-frequency", type=int, default=100,
                          help="how often to flush to a checkpoint file")
     nlc_use.set_defaults(func=nlc_use_handler)
@@ -162,7 +164,8 @@ def nlc_train_handler(args):
 
 
 def nlc_use_handler(args):
-    n = NLC(args.url, args.username, args.password, args.classifier)
+    corpus = args.corpus.set_index(ANSWER_ID)
+    n = NLC(args.url, args.username, args.password, args.classifier, corpus)
     answer_questions(n, args.test_set, args.output, args.checkpoint_frequency)
 
 

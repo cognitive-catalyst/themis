@@ -3,7 +3,7 @@ import tempfile
 
 from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID
+from themis import logger, to_csv, QUESTION, ANSWER_ID, ANSWER
 
 
 def classifier_list(url, username, password):
@@ -41,13 +41,16 @@ class NLC(object):
     `Watson developer cloud Python SDK <https://github.com/watson-developer-cloud/python-sdk>`.
     """
 
-    def __init__(self, url, username, password, classifier_id):
+    def __init__(self, url, username, password, classifier_id, corpus):
         self.nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
         self.classifier_id = classifier_id
+        self.corpus = corpus
 
     def __repr__(self):
         return "NLC: %s" % self.classifier_id
 
     def ask(self, question):
         classification = self.nlc.classify(self.classifier_id, question)
-        return classification["classes"][0]["class_name"], classification["classes"][0]["confidence"]
+        class_name = classification["classes"][0]["class_name"]
+        confidence = classification["classes"][0]["confidence"]
+        return self.corpus.loc[class_name][ANSWER], confidence
