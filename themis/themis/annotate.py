@@ -4,7 +4,7 @@ import os
 import pandas
 
 from themis import ensure_directory_exists, ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, logger, CONFIDENCE, to_csv, \
-    CsvFileType, IN_PURVIEW, CORRECT
+    CsvFileType, IN_PURVIEW, CORRECT, sample, FREQUENCY
 
 QUESTION_TEXT = "QuestionText"
 IS_IN_PURVIEW = "Is_In_Purview"
@@ -17,9 +17,9 @@ ANS_SHORT = "ANS_SHORT"
 IS_ON_TOPIC = "IS_ON_TOPIC"
 
 
-def create_annotation_assist_files(corpus, answers, output_directory):
+def create_annotation_assist_files(corpus, answers, sample_size, frequency, output_directory):
     annotation_assist_corpus = convert_corpus(corpus)
-    annotation_assist_answers = convert_answers(answers)
+    annotation_assist_answers = convert_answers(answers, sample_size, frequency)
     ensure_directory_exists(output_directory)
     with open(os.path.join(output_directory, "annotation_assist_corpus.json"), "w") as f:
         json.dump(annotation_assist_corpus, f, indent=2)
@@ -32,8 +32,10 @@ def convert_corpus(corpus):
     return json.loads(corpus.to_json(orient="records"), encoding="utf-8")
 
 
-def convert_answers(systems):
-    systems = pandas.concat(systems).drop_duplicates([QUESTION, ANSWER])
+def convert_answers(systems, sample_size, frequency):
+    systems = pandas.concat(systems)
+    systems = sample(sample_size, systems, frequency, QUESTION, FREQUENCY)
+    systems = systems.drop_duplicates([QUESTION, ANSWER])
     # noinspection PyTypeChecker
     logger.info("%d total Q&A pairs" % len(systems))
     systems = systems.rename(

@@ -77,6 +77,23 @@ class DataFrameCheckpoint(object):
         self.need_header = False
 
 
+def sample(sample_size, items, frequency, item_name, frequency_name):
+    """
+    Sample rows from the items table so that there are n unique items in a specified column. The sampling is done
+    using frequencies in a separate table.
+
+    :param sample_size: number of items to sample
+    :param items: table to sample from
+    :param frequency: table of frequencies
+    :param item_name: column in the items table to sample
+    :param frequency_name: column in frequency table that defines the sampling distribution
+    :return: subset of the items table
+    """
+    t = pandas.merge(pandas.DataFrame({item_name: items[item_name].drop_duplicates()}), frequency, on=item_name)
+    s = pandas.DataFrame({item_name: t.sample(sample_size, weights=frequency_name)[item_name]})
+    return pandas.merge(s, items)
+
+
 def configure_logger(level, format):
     logger.setLevel(level)
     h = logging.StreamHandler()
