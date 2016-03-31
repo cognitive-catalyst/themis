@@ -6,13 +6,12 @@ import pandas
 from themis import ensure_directory_exists, ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, logger, CONFIDENCE, to_csv, \
     CsvFileType, IN_PURVIEW, CORRECT
 
-QUESTION_TEXT = "Question_Text"
+QUESTION_TEXT = "QuestionText"
 IS_IN_PURVIEW = "Is_In_Purview"
 SYSTEM_ANSWER = "System_Answer"
 ANNOTATION_SCORE = "Annotation_Score"
 TOP_ANSWER_TEXT = "TopAnswerText"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
-DATE_TIME = "DateTime"
 ANS_LONG = "ANS_LONG"
 ANS_SHORT = "ANS_SHORT"
 IS_ON_TOPIC = "IS_ON_TOPIC"
@@ -35,12 +34,11 @@ def convert_corpus(corpus):
 
 def convert_answers(systems):
     systems = pandas.concat(systems).drop_duplicates([QUESTION, ANSWER])
-    systems[DATE_TIME] = "06052015:061049:UTC"
     # noinspection PyTypeChecker
     logger.info("%d total Q&A pairs" % len(systems))
     systems = systems.rename(
         columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT, CONFIDENCE: TOP_ANSWER_CONFIDENCE})
-    systems = systems[[DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE]]
+    systems = systems[[QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE]]
     return systems.sort_values([QUESTION_TEXT, TOP_ANSWER_CONFIDENCE])
 
 
