@@ -25,7 +25,7 @@ def remove_classifiers(url, username, password, classifier_ids):
 
 
 def train_nlc(url, username, password, truth, name):
-    logger.info("Train  model %s with %d instances" % (name, len(truth)))
+    logger.info("Train model %s with %d instances" % (name, len(truth)))
     with tempfile.TemporaryFile() as training_file:
         to_csv(training_file, truth[[QUESTION, ANSWER_ID]], header=False, index=False)
         training_file.seek(0)
