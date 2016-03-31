@@ -123,7 +123,8 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
                 answer_text = pau["responseMarkup"]
                 title = pau["title"]
                 filename = pau["sourceName"]
-                corpus_csv_checkpoint.write(pau_id, answer_text, title, filename)
+                # Note: the "id" field of a PAU is not equal to the "PAU id" you use to look it up from the REST API.
+                corpus_csv_checkpoint.write(pau["id"], answer_text, title, filename)
                 m += 1
     finally:
         corpus_csv_checkpoint.close()
