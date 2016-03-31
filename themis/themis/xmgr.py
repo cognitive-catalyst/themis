@@ -6,7 +6,7 @@ import pandas
 import requests
 
 from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ensure_directory_exists, ANSWER, TITLE, \
-    FILENAME, QUESTION_ID
+    FILENAME, QUESTION_ID, from_csv
 
 
 def download_from_xmgr(url, username, password, output_directory, checkpoint_frequency, max_docs):
@@ -33,6 +33,7 @@ def download_from_xmgr(url, username, password, output_directory, checkpoint_fre
     xmgr = XmgrProject(url, username, password)
     download_truth(xmgr, output_directory)
     download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs)
+    verify_answer_ids(output_directory)
 
 
 def download_truth(xmgr, output_directory):
@@ -138,6 +139,24 @@ def serialize_pau_ids(pau_ids):
 
 def deserialize_pau_ids(s):
     return set(s.split(","))
+
+
+def verify_answer_ids(output_directory):
+    truth_csv = os.path.join(output_directory, "truth.csv")
+    truth = from_csv(truth_csv)
+    truth_ids = set(truth[ANSWER_ID])
+    corpus_ids = set(from_csv(os.path.join(output_directory, "corpus.csv"))[ANSWER_ID])
+    d = truth_ids - corpus_ids
+    if d:
+        logger.warn("%d truth answer ids of %d not in corpus (%0.3f)" %
+                    (len(d), len(truth_ids), len(d) / float(len(truth_ids))))
+        non_corpus = truth[truth[ANSWER_ID].isin(d)]
+        truth_non_corpus_csv = os.path.join(output_directory, "truth.non_corpus.csv")
+        logger.warn("%d omitted truth mappings (saved to %s)" % (len(non_corpus), truth_non_corpus_csv))
+        to_csv(truth_non_corpus_csv, non_corpus)
+        truth = truth[~truth[ANSWER_ID].isin(d)]
+        os.remove(truth_csv)
+        to_csv(truth_csv, truth)
 
 
 class XmgrProject(object):

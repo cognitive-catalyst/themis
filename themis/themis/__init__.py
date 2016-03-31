@@ -17,6 +17,10 @@ CORRECT = "Correct"
 IN_PURVIEW = "In Purview"
 
 
+def from_csv(file, **kwargs):
+    return pandas.read_csv(file, encoding="utf-8", **kwargs)
+
+
 def to_csv(filename, dataframe, **kwargs):
     dataframe.to_csv(filename, encoding="utf-8", **kwargs)
 
@@ -36,7 +40,7 @@ class CsvFileType(object):
         self.rename = rename
 
     def __call__(self, filename):
-        csv = pandas.read_csv(filename, usecols=self.columns, encoding="utf-8")
+        csv = from_csv(filename, usecols=self.columns)
         if self.rename is not None:
             csv = csv.rename(columns=self.rename)
         csv.filename = filename
