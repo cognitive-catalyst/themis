@@ -35,7 +35,7 @@ def run():
     xmgr_parser.set_defaults(func=xmgr_handler)
 
     filter_corpus_parser = subparsers.add_parser("filter", help="filter the corpus downloaded from XMGR")
-    filter_corpus_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
+    filter_corpus_parser.add_argument("corpus", type=CsvFileType(), help="corpus file created by the xmgr command")
     filter_corpus_parser.add_argument("--max-size", type=int, help="maximum size of answer text")
     filter_corpus_parser.set_defaults(func=filter_handler)
 
@@ -49,7 +49,8 @@ def run():
     test_set_parser.set_defaults(func=test_set_handler)
 
     wea_parser = subparsers.add_parser("wea", help="answer questions with WEA logs")
-    wea_parser.add_argument("test_set", type=CsvFileType(), help="test set")
+    wea_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
+                            help="questions and frequencies created by the test-set command")
     wea_parser.add_argument("logs",
                             type=CsvFileType(
                                 [QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
@@ -60,7 +61,8 @@ def run():
 
     solr_parser = subparsers.add_parser("solr", help="answer questions with solr")
     solr_parser.add_argument("url", type=str, help="solr URL")
-    solr_parser.add_argument("test_set", type=CsvFileType(), help="test set")
+    solr_parser.add_argument("test_set", type=CsvFileType(),
+                             help="questions and frequencies created by the test-set command")
     solr_parser.add_argument("output", type=str, help="output filename")
     solr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
                              help="how often to flush to a checkpoint file")
@@ -75,14 +77,16 @@ def run():
     nlc_subparsers = nlc_parser.add_subparsers(title="Natural Language Classifier",
                                                description="train, use, and manage NLC models", help="NLC actions")
     nlc_train = nlc_subparsers.add_parser("train", parents=[nlc_arguments], help="train an NLC model")
-    nlc_train.add_argument("truth", type=CsvFileType(), help="ground truth")
+    nlc_train.add_argument("truth", type=CsvFileType(), help="truth file created by the xmgr command")
     nlc_train.add_argument("name", help="classifier name")
     nlc_train.set_defaults(func=nlc_train_handler)
     nlc_use = nlc_subparsers.add_parser("use", parents=[nlc_arguments], help="use NLC model")
     nlc_use.add_argument("classifier", help="classifier id")
-    nlc_use.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
+    nlc_use.add_argument("test_set", metavar="test-set", type=CsvFileType(),
+                         help="questions and frequencies created by the test-set command")
     nlc_use.add_argument("output", type=str, help="output filename")
-    nlc_use.add_argument("corpus", type=CsvFileType([ANSWER, ANSWER_ID]), help="corpus file")
+    nlc_use.add_argument("corpus", type=CsvFileType([ANSWER, ANSWER_ID]),
+                         help="corpus file created by the xmgr command")
     nlc_use.add_argument("--checkpoint-frequency", type=int, default=100,
                          help="how often to flush to a checkpoint file")
     nlc_use.set_defaults(func=nlc_use_handler)
@@ -96,7 +100,7 @@ def run():
     nlc_delete.set_defaults(func=nlc_delete_handler)
 
     annotate_parser = subparsers.add_parser("annotate", help="work with annotation assist")
-    annotate_parser.add_argument("corpus", type=CsvFileType(), help="corpus file")
+    annotate_parser.add_argument("corpus", type=CsvFileType(), help="corpus file created by the xmgr command")
     annotate_parser.add_argument("answers", type=CsvFileType(), nargs="+", help="answered questions file")
     annotate_parser.add_argument("--output", default=".", help="output directory")
     annotate_parser.add_argument("--sample", type=int, help="number of unique questions to sample")
@@ -106,7 +110,8 @@ def run():
 
     curves_parser = subparsers.add_parser("curves", help="plot curves")
     curves_parser.add_argument("type", choices=["roc", "precision"], help="type of curve to create")
-    curves_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
+    curves_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
+                               help="questions and frequencies created by the test-set command")
     curves_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
     curves_parser.add_argument("--judgement-threshold", type=float, default=50,
                                help="cutoff value for a correct score, default 50")
@@ -119,7 +124,8 @@ def run():
     draw_parser.set_defaults(func=draw_handler)
 
     collate_parser = subparsers.add_parser("collate", help="collate answers and judgements")
-    collate_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(), help="test set")
+    collate_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
+                                help="questions and frequencies created by the test-set command")
     collate_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
     collate_parser.add_argument("--judgement-threshold", type=float, default=50,
                                 help="cutoff value for a correct score, default 50")
