@@ -7,11 +7,11 @@ from curves import roc_curve, precision_curve, plot_curves
 from nlc import classifier_list, NLC, train_nlc, remove_classifiers, classifier_status
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT, \
-    ANSWER_ID
+    ANSWER_ID, retry
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs, \
     filter_corpus
 from wea import wea_test, create_test_set_from_wea_logs
-from xmgr import download_from_xmgr
+from xmgr import DownloadFromXmgrClosure
 
 
 def run():
@@ -32,6 +32,7 @@ def run():
     xmgr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
                              help="how often to flush to a checkpoint file")
     xmgr_parser.add_argument("--max-docs", type=int, help="maximum number of corpus documents to download")
+    xmgr_parser.add_argument("--retries", type=int, help="number of times to retry downloading after an error")
     xmgr_parser.set_defaults(func=xmgr_handler)
 
     filter_corpus_parser = subparsers.add_parser("filter", help="filter the corpus downloaded from XMGR")
@@ -146,8 +147,10 @@ def run():
 
 
 def xmgr_handler(args):
-    download_from_xmgr(args.url, args.username, args.password, args.output_directory, args.checkpoint_frequency,
-                       args.max_docs)
+    c = DownloadFromXmgrClosure(args.url, args.username, args.password, args.output_directory,
+                                args.checkpoint_frequency,
+                                args.max_docs)
+    retry(c, args.retries)
 
 
 def filter_handler(args):

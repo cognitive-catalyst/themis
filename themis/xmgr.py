@@ -159,6 +159,20 @@ def verify_answer_ids(output_directory):
         to_csv(truth_csv, truth)
 
 
+class DownloadFromXmgrClosure(object):
+    def __init__(self, url, username, password, output_directory, checkpoint_frequency, max_docs):
+        self.url = url
+        self.username = username
+        self.password = password
+        self.output_directory = output_directory
+        self.checkpoint_frequency = checkpoint_frequency
+        self.max_docs = max_docs
+
+    def __call__(self):
+        download_from_xmgr(self.url, self.username, self.password, self.output_directory, self.checkpoint_frequency,
+                           self.max_docs)
+
+
 class XmgrProject(object):
     def __init__(self, project_url, username, password):
         self.project_url = project_url
