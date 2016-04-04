@@ -28,7 +28,7 @@ def run():
     xmgr_parser.add_argument("url", type=str, help="XMGR url")
     xmgr_parser.add_argument("username", type=str, help="XMGR username")
     xmgr_parser.add_argument("password", type=str, help="XMGR password")
-    xmgr_parser.add_argument("output_directory", type=str, default=".", help="output directory")
+    xmgr_parser.add_argument("--output-directory", type=str, default=".", help="output directory")
     xmgr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
                              help="how often to flush to a checkpoint file")
     xmgr_parser.add_argument("--max-docs", type=int, help="maximum number of corpus documents to download")
