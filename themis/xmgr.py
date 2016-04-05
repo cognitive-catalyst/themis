@@ -23,11 +23,17 @@ def download_from_xmgr(url, username, password, output_directory, checkpoint_fre
     a download fails in the middle it can be restarted from where it left off.
 
     :param url: project URL
+    :type url: str
     :param username: username
+    :type username: str
     :param password: password
+    :type password: str
     :param output_directory: directory in which to write XMGR files
+    :type output_directory: str
     :checkpoint_frequency: how often to write intermediate results to a checkpoint file
+    :type checkpoint_frequency: int
     :param max_docs: maximum number of corpus documents to download, if None, download them all
+    :type max_docs: int
     """
     ensure_directory_exists(output_directory)
     xmgr = XmgrProject(url, username, password)

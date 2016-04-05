@@ -75,9 +75,12 @@ def mark_annotation_assist_correct(annotation_assist, judgement_threshold):
     """
     Convert the annotation score column to a boolean correct column by applying a threshold.
 
-    :param annotation_assist: Annotation Assist file
+    :param annotation_assist: Annotation Assist judgements
+    :type annotation_assist: pandas.DataFrame
     :param judgement_threshold: threshold above which an answer is deemed correct
-    :return: dataframe with a boolean Correct column
+    :type judgement_threshold: pandas.DataFrame
+    :return: Annotation Assist judgements with a boolean Correct column
+    :rtype: pandas.DataFrame
     """
     annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgement_threshold
     return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")

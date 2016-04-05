@@ -55,9 +55,12 @@ def wea_test(test_set, wea_logs):
     """
     Get answers returned by WEA to questions by looking them up in the usage logs.
 
-    :param test_set: DataFrame with Question, Frequency columns
-    :param wea_logs: DataFrame of QuestionsData.csv report log
-    :return: DataFrame with Question, Answer, and Confidence
+    :param test_set: Question and Frequency information
+    :type test_set: pandas.DataFrame
+    :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
+    :type wea_logs: pandas.DataFrame
+    :return: Question, Answer, and Confidence
+    :rtype: pandas.DataFrame
     """
     wea_logs = fix_confidence_ranges(wea_logs)
     wea_logs = wea_logs.drop_duplicates(QUESTION)
@@ -77,7 +80,9 @@ def fix_confidence_ranges(wea_logs):
     experience column.
 
     :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
+    :type wea_logs: pandas.DataFrame
     :return: logs with all confidence values scaled between 0 and 1
+    :rtype: pandas.DataFrame
     """
     # groupby drops null values, so rewrite these as "NA".
     wea_logs.loc[wea_logs[USER_EXPERIENCE].isnull(), USER_EXPERIENCE] = "NA"
@@ -94,8 +99,11 @@ def augment_system_logs(wea_logs, annotation_assist):
     Add In Purview and Annotation Score information to system usage logs
 
     :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
-    :param annotation_assist: Annotation Assist file
-    :return: WEA logs with additional columns
+    :type wea_logs: pandas.DataFrame
+    :param annotation_assist: Annotation Assist judgements
+    :type annotation_assist: pandas.DataFrame
+    :return: user interaction logs with additional columns
+    :rtype: pandas.DataFrame
     """
     wea_logs[ANSWER] = wea_logs[ANSWER].str.replace("\n", "")
     augmented = pandas.merge(wea_logs, annotation_assist, on=(QUESTION, ANSWER), how="left")
@@ -109,8 +117,12 @@ def filter_corpus(corpus, max_size):
     """
     Remove corpus entries above a specified size
 
-    :param corpus: corpus dataframe containing "Answer Id" and "Answer" columns
+    :param corpus: corpus with Answer Id and Answer columns
+    :type corpus: pandas.DataFrame
     :param max_size: maximum allowed Answer size in characters
+    :type max_size: int
+    :return: corpus with oversize answers removed
+    :rtype: pandas.DataFrame
     """
     if max_size is not None:
         filtered = corpus[corpus[ANSWER].str.len() <= max_size]

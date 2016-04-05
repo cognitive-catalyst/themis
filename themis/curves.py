@@ -13,10 +13,12 @@ ATTEMPTED = "Attempted"
 
 def roc_curve(judgements):
     """
-    Plot a receiver operating characteristic (ROC) curve.
+    Generate points for a receiver operating characteristic (ROC) curve.
 
-    :param judgements: data frame with confidence, in purview, correct, and frequency information
-    :return: true positive rate, false positive rate, confidence thresholds
+    :param judgements: confidence, in purview, correct, and frequency information
+    :type judgements: pandas.DataFrame
+    :return: true positive rate, false positive rate, and confidence thresholds
+    :rtype: pandas.DataFrame
     """
     ts = confidence_thresholds(judgements, True)
     true_positive_rates = [true_positive_rate(judgements, t) for t in ts]
@@ -41,6 +43,14 @@ def false_positive_rate(judgements, t):
 
 
 def precision_curve(judgements):
+    """
+    Generate points for a precision curve.
+
+    :param judgements: confidence, in purview, correct, and frequency information
+    :type judgements: pandas.DataFrame
+    :return: questions attempted, precision, and confidence thresholds
+    :rtype: pandas.DataFrame
+    """
     ts = confidence_thresholds(judgements, False)
     precision_values = [precision(judgements, t) for t in ts]
     attempted_values = [questions_attempted(judgements, t) for t in ts]

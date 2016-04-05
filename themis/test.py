@@ -6,6 +6,18 @@ from themis import logger, DataFrameCheckpoint, QUESTION, ANSWER, CONFIDENCE
 
 
 def answer_questions(system, test_set, output_filename, checkpoint_frequency):
+    """
+    Use a Q&A system to provide answers to a test set of questions
+
+    :param system: Q&A system
+    :type system: object that exports an ask method
+    :param test_set: set of questions to ask
+    :type test_set: pandas.DataFrame
+    :param output_filename: name of file to which write questions, answers, and confidences
+    :type output_filename: str
+    :param checkpoint_frequency: how often to write intermediary results to the output file
+    :type checkpoint_frequency: int
+    """
     questions = test_set[QUESTION]
     logger.info("Get answers to %d questions from %s" % (len(questions), system))
     answers = DataFrameCheckpoint(output_filename, [QUESTION, ANSWER, CONFIDENCE], checkpoint_frequency)
