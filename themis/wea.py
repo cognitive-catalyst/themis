@@ -11,9 +11,6 @@ USER_EXPERIENCE = "UserExperience"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 DATE_TIME = "DateTime"
 
-WEA_DATE_FORMAT = re.compile(
-    r"(?P<month>\d\d)(?P<day>\d\d)(?P<year>\d\d\d\d):(?P<hour>\d\d)(?P<min>\d\d)(?P<sec>\d\d):UTC")
-
 
 def create_test_set_from_wea_logs(wea_logs, before, after, n):
     """
@@ -127,6 +124,9 @@ class WeaLogFileType(CsvFileType):
     Read the QuestionsData.csv file in the XMGR usage report logs.
     """
 
+    WEA_DATE_FORMAT = re.compile(
+        r"(?P<month>\d\d)(?P<day>\d\d)(?P<year>\d\d\d\d):(?P<hour>\d\d)(?P<min>\d\d)(?P<sec>\d\d):UTC")
+
     def __init__(self):
         super(self.__class__, self).__init__(
             [DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
@@ -148,5 +148,5 @@ class WeaLogFileType(CsvFileType):
         :return: standard date
         :rtype: str
         """
-        m = WEA_DATE_FORMAT.match(s).groupdict()
+        m = WeaLogFileType.WEA_DATE_FORMAT.match(s).groupdict()
         return "%s-%s-%sT%s:%s:%sZ" % (m['year'], m['month'], m['day'], m['hour'], m['min'], m['sec'])
