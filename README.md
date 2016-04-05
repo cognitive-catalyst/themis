@@ -22,6 +22,8 @@ The corpus maps answer IDs to answer text while the truth maps answer IDs to que
 This creates corpus.csv and truth.csv files.
 The process may take several minutes.
 If it stops in the middle for any reason you can run the same command line and it will pick up where it left off.
+You may also specify an optional number of retries.
+If the download fails, the script will sleep for one minute then try again the specified number of times.
 
 ### Get Test Set from Usage Logs
 
