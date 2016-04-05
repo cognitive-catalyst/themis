@@ -1,15 +1,21 @@
+import re
+
 import pandas
 
-from themis import logger, QUESTION, CONFIDENCE, FREQUENCY, ANSWER, ANSWER_ID
+from themis import logger, QUESTION, CONFIDENCE, FREQUENCY, ANSWER, ANSWER_ID, CsvFileType
 
 # Column headers in WEA logs
 QUESTION_TEXT = "QuestionText"
 TOP_ANSWER_TEXT = "TopAnswerText"
 USER_EXPERIENCE = "UserExperience"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
+DATE_TIME = "DateTime"
+
+WEA_DATE_FORMAT = re.compile(
+    r"(?P<month>\d\d)(?P<day>\d\d)(?P<year>\d\d\d\d):(?P<hour>\d\d)(?P<min>\d\d)(?P<sec>\d\d):UTC")
 
 
-def create_test_set_from_wea_logs(wea_logs, n):
+def create_test_set_from_wea_logs(wea_logs, before, after, n):
     """
     Extract question text and the frequency with which a question was asked from the XMGR QuestionsData.csv report log,
     ignoring questions that were handled solely by dialog.
@@ -20,13 +26,24 @@ def create_test_set_from_wea_logs(wea_logs, n):
     Optionally sample of a set of questions. The sampled question frequency will be drawn from the same distribution as
     the original one in the logs.
 
-    :param wea_logs: DataFrame of QuestionsData.csv report log
-    :param n: number of questions to sample
-    :return: DataFrame with Question, Frequency columns
+    :param wea_logs: QuestionsData.csv report log
+    :type wea_logs: pandas.DataFrame
+    :param before: only use questions from before this date
+    :type before:
+    :param after: only use questions from after this date
+    :type after:
+    :param n: number of questions to sample, use all questions if None
+    :type n: int
+    :return: questions and their frequencies
+    :rtype: pandas.DataFrame
     """
     wea_logs = wea_logs[~wea_logs[USER_EXPERIENCE].isin(["DIALOG", "Dialog Response"])]
     wea_logs = wea_logs[
         ~wea_logs[ANSWER].str.contains("Here's Watson's response, but remember it's best to use full sentences.")]
+    if after is not None:
+        wea_logs = wea_logs[wea_logs[DATE_TIME] >= after]
+    if before is not None:
+        wea_logs = wea_logs[wea_logs[DATE_TIME] <= before]
     # Frequency is the number of times the question appeared in the report log.
     test_set = pandas.merge(wea_logs.drop_duplicates(QUESTION),
                             wea_logs.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
@@ -103,3 +120,33 @@ def filter_corpus(corpus, max_size):
         logger.info("Filtered %d answers over size %d" % (len(corpus) - len(filtered), max_size))
         corpus = filtered
     return corpus.set_index(ANSWER_ID)
+
+
+class WeaLogFileType(CsvFileType):
+    """
+    Read the QuestionsData.csv file in the XMGR usage report logs.
+    """
+
+    def __init__(self):
+        super(self.__class__, self).__init__(
+            [DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
+            {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER,
+             TOP_ANSWER_CONFIDENCE: CONFIDENCE})
+
+    def __call__(self, filename):
+        wea_logs = super(self.__class__, self).__call__(filename)
+        wea_logs[DATE_TIME] = pandas.to_datetime(wea_logs[DATE_TIME].apply(self.standard_date_format))
+        return wea_logs
+
+    @staticmethod
+    def standard_date_format(s):
+        """
+        Convert from WEA's idiosyncratic string date format to the ISO standard.
+
+        :param s: WEA date
+        :type s: str
+        :return: standard date
+        :rtype: str
+        """
+        m = WEA_DATE_FORMAT.match(s).groupdict()
+        return "%s-%s-%sT%s:%s:%sZ" % (m['year'], m['month'], m['day'], m['hour'], m['min'], m['sec'])

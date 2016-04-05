@@ -1,6 +1,8 @@
 import argparse
 import json
 
+import pandas
+
 from annotate import create_annotation_assist_files, AnnotationAssistFileType, \
     add_judgements_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
 from curves import roc_curve, precision_curve, plot_curves
@@ -8,8 +10,8 @@ from nlc import classifier_list, NLC, train_nlc, remove_classifiers, classifier_
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT, \
     ANSWER_ID, retry
-from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE, TOP_ANSWER_CONFIDENCE, augment_system_logs, \
-    filter_corpus
+from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, augment_system_logs, \
+    filter_corpus, WeaLogFileType
 from wea import wea_test, create_test_set_from_wea_logs
 from xmgr import DownloadFromXmgrClosure
 
@@ -42,22 +44,17 @@ def run():
 
     test_set_parser = subparsers.add_parser("test-set",
                                             help="create test set of questions and their frequencies from XMGR logs")
-    test_set_parser.add_argument("logs",
-                                 type=CsvFileType([QUESTION_TEXT, TOP_ANSWER_TEXT, USER_EXPERIENCE],
-                                                  {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER}),
-                                 help="QuestionsData.csv log file from XMGR")
+    test_set_parser.add_argument("logs", type=WeaLogFileType(), help="QuestionsData.csv log file from XMGR")
+    test_set_parser.add_argument("--before", type=pandas.to_datetime,
+                                 help="keep interactions before the specified date")
+    test_set_parser.add_argument("--after", type=pandas.to_datetime, help="keep interactions after the specified date")
     test_set_parser.add_argument("--n", type=int, help="sample size")
     test_set_parser.set_defaults(func=test_set_handler)
 
     wea_parser = subparsers.add_parser("wea", help="answer questions with WEA logs")
     wea_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
                             help="questions and frequencies created by the test-set command")
-    wea_parser.add_argument("logs",
-                            type=CsvFileType(
-                                [QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
-                                {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER,
-                                 TOP_ANSWER_CONFIDENCE: CONFIDENCE}),
-                            help="QuestionsData.csv log file from XMGR")
+    wea_parser.add_argument("logs", type=WeaLogFileType(), help="QuestionsData.csv log file from XMGR")
     wea_parser.set_defaults(func=wea_handler)
 
     solr_parser = subparsers.add_parser("solr", help="answer questions with solr")
@@ -159,7 +156,7 @@ def filter_handler(args):
 
 
 def test_set_handler(args):
-    test_set = create_test_set_from_wea_logs(args.logs, args.n)
+    test_set = create_test_set_from_wea_logs(args.logs, args.before, args.after, args.n)
     print_csv(test_set)
 
 
