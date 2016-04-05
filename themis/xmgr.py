@@ -95,10 +95,11 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
         if pau_ids_checkpoint.recovered:
             logger.info("Recovered %d document ids from previous run" % len(pau_ids_checkpoint.recovered))
         n = len(document_ids)
+        start = len(pau_ids_checkpoint.recovered) + 1
         if n:
             logger.info("Get PAU ids from %d documents" % n)
-            for i, document_id in enumerate(document_ids, 1):
-                if i % checkpoint_frequency == 0 or i == 1 or i == n:
+            for i, document_id in enumerate(document_ids, start):
+                if i % checkpoint_frequency == 0 or i == start or i == n:
                     logger.info("Get PAU ids from document %d of %d" % (i, n))
                 pau_ids = xmgr.get_pau_ids_from_document(document_id)
                 pau_ids_checkpoint.write(document_id, serialize_pau_ids(pau_ids))
@@ -115,9 +116,9 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
         pau_ids -= corpus_csv_checkpoint.recovered
         n = len(pau_ids)
         m = 0
-        logger.info("Get %d PAUs" % n)
-        for i, pau_id in enumerate(pau_ids, 1):
-            if i % checkpoint_frequency == 0 or i == 1 or i == n:
+        start = len(corpus_csv_checkpoint.recovered) + 1
+        for i, pau_id in enumerate(pau_ids, start):
+            if i % checkpoint_frequency == 0 or i == start or i == n:
                 logger.info("Get PAU %d of %d" % (i, n))
             pau = xmgr.get_pau(pau_id)
             if pau is not None:
