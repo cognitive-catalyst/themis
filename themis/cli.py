@@ -4,7 +4,7 @@ import json
 import pandas
 
 from annotate import create_annotation_assist_files, AnnotationAssistFileType, \
-    add_judgements_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
+    add_judgments_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
 from curves import roc_curve, precision_curve, plot_curves
 from nlc import classifier_list, NLC, train_nlc, remove_classifiers, classifier_status
 from test import answer_questions, Solr
@@ -110,8 +110,8 @@ def run():
     curves_parser.add_argument("type", choices=["roc", "precision"], help="type of curve to create")
     curves_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
                                help="questions and frequencies created by the test-set command")
-    curves_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
-    curves_parser.add_argument("--judgement-threshold", type=float, default=50,
+    curves_parser.add_argument("judgments", type=AnnotationAssistFileType(), help="Annotation Assist judgments")
+    curves_parser.add_argument("--judgment-threshold", type=float, default=50,
                                help="cutoff value for a correct score, default 50")
     curves_parser.add_argument("answers", type=CsvFileType(), help="answers returned by a system")
     curves_parser.set_defaults(func=curves_handler)
@@ -121,11 +121,11 @@ def run():
     draw_parser.add_argument("--labels", nargs="+", help="curve labels, by default use the file names")
     draw_parser.set_defaults(func=draw_handler)
 
-    collate_parser = subparsers.add_parser("collate", help="collate answers and judgements")
+    collate_parser = subparsers.add_parser("collate", help="collate answers and judgments")
     collate_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
                                 help="questions and frequencies created by the test-set command")
-    collate_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
-    collate_parser.add_argument("--judgement-threshold", type=float, default=50,
+    collate_parser.add_argument("judgments", type=AnnotationAssistFileType(), help="Annotation Assist judgments")
+    collate_parser.add_argument("--judgment-threshold", type=float, default=50,
                                 help="cutoff value for a correct score, default 50")
     collate_parser.add_argument("answers", type=CsvFileType(), help="answers returned by a system")
     collate_parser.set_defaults(func=collate_handler)
@@ -134,7 +134,7 @@ def run():
     augment_parser.add_argument("logs",
                                 type=CsvFileType(rename={QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER}),
                                 help="QuestionsData.csv log file from XMGR")
-    augment_parser.add_argument("judgements", type=AnnotationAssistFileType(), help="Annotation Assist judgements")
+    augment_parser.add_argument("judgments", type=AnnotationAssistFileType(), help="Annotation Assist judgments")
     augment_parser.set_defaults(func=augment_handler)
 
     args = parser.parse_args()
@@ -199,8 +199,8 @@ def annotate_handler(args):
 
 
 def curves_handler(args):
-    data = add_judgements_and_frequencies_to_qa_pairs(args.answers, args.judgements, args.test_set)
-    data = mark_annotation_assist_correct(data, args.judgement_threshold)
+    data = add_judgments_and_frequencies_to_qa_pairs(args.answers, args.judgments, args.test_set)
+    data = mark_annotation_assist_correct(data, args.judgment_threshold)
     if args.type == "roc":
         curve = roc_curve(data)
     elif args.type == "precision":
@@ -220,7 +220,7 @@ def draw_handler(args):
 
 
 def collate_handler(args):
-    data = add_judgements_and_frequencies_to_qa_pairs(args.answers, args.judgements, args.test_set).set_index(
+    data = add_judgments_and_frequencies_to_qa_pairs(args.answers, args.judgments, args.test_set).set_index(
         [QUESTION, ANSWER]).sort_values(by=[CONFIDENCE, FREQUENCY])
     print_csv(data)
     logger.info("Confidence range %0.3f - %0.3f" % (data[CONFIDENCE].min(), data[CONFIDENCE].max()))
@@ -230,7 +230,7 @@ def collate_handler(args):
 
 
 def augment_handler(args):
-    augmented_logs = augment_system_logs(args.logs, args.judgements)
+    augmented_logs = augment_system_logs(args.logs, args.judgments)
     print_csv(augmented_logs)
 
 

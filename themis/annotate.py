@@ -60,10 +60,10 @@ class AnnotationAssistFileType(CsvFileType):
         return annotation_assist[[QUESTION, ANSWER, IN_PURVIEW, ANNOTATION_SCORE]]
 
 
-def add_judgements_and_frequencies_to_qa_pairs(qa_pairs, judgements, question_frequencies):
+def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies):
     # The Annotation Assist tool strips newlines, so remove them from the answer text in the system output as well.
     qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
-    qa_pairs = pandas.merge(qa_pairs, judgements, on=(QUESTION, ANSWER), how="left")
+    qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER), how="left")
     missing = sum(qa_pairs[ANNOTATION_SCORE].isnull())
     if missing:
         logger.warn("%d unannotated Q&A pairs out of %d" % (missing, len(qa_pairs)))
@@ -71,16 +71,16 @@ def add_judgements_and_frequencies_to_qa_pairs(qa_pairs, judgements, question_fr
     return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)
 
 
-def mark_annotation_assist_correct(annotation_assist, judgement_threshold):
+def mark_annotation_assist_correct(annotation_assist, judgment_threshold):
     """
     Convert the annotation score column to a boolean correct column by applying a threshold.
 
-    :param annotation_assist: Annotation Assist judgements
+    :param annotation_assist: Annotation Assist judgments
     :type annotation_assist: pandas.DataFrame
-    :param judgement_threshold: threshold above which an answer is deemed correct
-    :type judgement_threshold: pandas.DataFrame
-    :return: Annotation Assist judgements with a boolean Correct column
+    :param judgment_threshold: threshold above which an answer is deemed correct
+    :type judgment_threshold: pandas.DataFrame
+    :return: Annotation Assist judgments with a boolean Correct column
     :rtype: pandas.DataFrame
     """
-    annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgement_threshold
+    annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgment_threshold
     return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")

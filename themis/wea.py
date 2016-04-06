@@ -100,7 +100,7 @@ def augment_system_logs(wea_logs, annotation_assist):
 
     :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
     :type wea_logs: pandas.DataFrame
-    :param annotation_assist: Annotation Assist judgements
+    :param annotation_assist: Annotation Assist judgments
     :type annotation_assist: pandas.DataFrame
     :return: user interaction logs with additional columns
     :rtype: pandas.DataFrame

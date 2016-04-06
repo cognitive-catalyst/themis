@@ -74,15 +74,15 @@ Run the `annotate` command to generate files that can be used by the
     themis annotate corpus.csv wea.answers.csv solr.answers.csv nlc.answers.csv
 
 This produces `annotation_assist_corpus.json` and `annotation_assist_answers.csv` files.
-After annotating the answers you can download the results in a file: call it `judgements.csv`.
+After annotating the answers you can download the results in a file: call it `judgments.csv`.
  
 ### Plot Curves
 
 Use the `curves` command to generate data for precision and ROC curves.
 For a given set of answers this generates a files containing threshold values, and `x` and `y` coordinates.
 
-    themis curves roc test-set.csv judgements.csv wea.answers.csv > wea.roc.csv
-    themis curves precision test-set.csv judgements.csv nlc.answers.csv > nlc.precision.csv
+    themis curves roc test-set.csv judgments.csv wea.answers.csv > wea.roc.csv
+    themis curves precision test-set.csv judgments.csv nlc.answers.csv > nlc.precision.csv
     etc.
 
 You can use these files as inputs into your preferred plotting program.
