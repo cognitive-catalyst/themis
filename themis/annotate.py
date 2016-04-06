@@ -60,15 +60,29 @@ class AnnotationAssistFileType(CsvFileType):
         return annotation_assist[[QUESTION, ANSWER, IN_PURVIEW, ANNOTATION_SCORE]]
 
 
-def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies):
+def add_judgments_and_frequencies_to_qa_pairs(system_answers, judgments, question_frequencies):
+    """
+    Collate system answer confidences and annotator judgments by question/answer pair.
+    Add to each pair the question frequency.
+
+    Though you expect the set of question/answer pairs in the system answers and judgments to not be disjoint, it may
+    be the case that neither is a subset of the other. If annotation is incomplete, there may be Q/A pairs in the
+    system answers that haven't been annotated yet. If multiple systems are being judged, there may be Q/A pairs in the
+    judgements that don't appear in the system answers.
+
+    :param system_answers: question, answer, and confidence provided by a Q&A system
+    :type qa_pairs: pandas.DataFrame
+    :param judgments: question, answer, in purview, and judgement provided by annotators
+    :type judgments: pandas.DataFrame
+    :param question_frequencies: question and question frequency in the test set
+    :type question_frequencies: pandas.DataFrame
+    :return: question and answer pairs with confidence, in purview, judgement and question frequency
+    :rtype: pandas.DataFrame
+    """
     # The Annotation Assist tool strips newlines, so remove them from the answer text in the system output as well.
-    qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
-    qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER), how="left")
-    missing = sum(qa_pairs[ANNOTATION_SCORE].isnull())
-    if missing:
-        logger.warn("%d unannotated Q&A pairs out of %d" % (missing, len(qa_pairs)))
-    qa_pairs = qa_pairs.dropna()
-    return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)
+    system_answers[ANSWER] = system_answers[ANSWER].str.replace("\n", "")
+    system_answers = pandas.merge(system_answers, judgments, on=(QUESTION, ANSWER))
+    return pandas.merge(system_answers, question_frequencies, on=QUESTION)
 
 
 def mark_annotation_assist_correct(annotation_assist, judgment_threshold):
