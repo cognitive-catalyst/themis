@@ -3,4 +3,4 @@ solrpy
 numpy
 matplotlib
 requests
-pandas
+pandas>=0.17.0
