@@ -6,7 +6,7 @@ import pandas
 from themis import ensure_directory_exists, ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, logger, CONFIDENCE, to_csv, \
     CsvFileType, IN_PURVIEW, CORRECT, sample, FREQUENCY
 
-QUESTION_TEXT = "QuestionText"
+QUESTION_TEXT = "Question_Text"
 IS_IN_PURVIEW = "Is_In_Purview"
 SYSTEM_ANSWER = "System_Answer"
 ANNOTATION_SCORE = "Annotation_Score"
