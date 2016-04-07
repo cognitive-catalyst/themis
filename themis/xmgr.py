@@ -106,7 +106,7 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
             logger.info("Get PAU ids from %d documents" % n)
             for i, document_id in enumerate(document_ids, start):
                 if i % checkpoint_frequency == 0 or i == start or i == n:
-                    logger.info("Get PAU ids from document %d of %d" % (i, n))
+                    logger.info("Get PAU ids from document %d of %d (%0.3f%%)" % (i, n, 100.0 * i / n))
                 pau_ids = xmgr.get_pau_ids_from_document(document_id)
                 pau_ids_checkpoint.write(document_id, serialize_pau_ids(pau_ids))
     finally:
@@ -125,7 +125,7 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
         start = len(corpus_csv_checkpoint.recovered) + 1
         for i, pau_id in enumerate(pau_ids, start):
             if i % checkpoint_frequency == 0 or i == start or i == n:
-                logger.info("Get PAU %d of %d" % (i, n))
+                logger.info("Get PAU %d of %d (%0.3f%%)" % (i, n, 100.0 * i / n))
             pau = xmgr.get_pau(pau_id)
             if pau is not None:
                 answer_text = pau["responseMarkup"]
