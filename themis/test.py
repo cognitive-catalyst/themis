@@ -2,7 +2,7 @@ import re
 
 # noinspection PyPackageRequirements
 import solr
-from themis import logger, DataFrameCheckpoint, QUESTION, ANSWER, CONFIDENCE
+from themis import logger, DataFrameCheckpoint, QUESTION, ANSWER, CONFIDENCE, percent_complete_message
 
 
 def answer_questions(system, test_set, output_filename, checkpoint_frequency):
@@ -28,7 +28,7 @@ def answer_questions(system, test_set, output_filename, checkpoint_frequency):
         n = len(answers.recovered) + len(questions)
         for i, question in enumerate(questions, len(answers.recovered) + 1):
             if i is 1 or i == n or i % checkpoint_frequency is 0:
-                logger.info("Question %d of %d" % (i, n))
+                logger.info(percent_complete_message("Question", i, n))
             answer, confidence = system.ask(question)
             logger.debug("%s\t%s\t%s" % (question, answer, confidence))
             answers.write(question, answer, confidence)

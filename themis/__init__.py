@@ -136,6 +136,10 @@ def sample(sample_size, items, frequency, item_name, frequency_name):
     return pandas.merge(s, items)
 
 
+def percent_complete_message(msg, n, total):
+    return "%s %d of %d (%0.3f%%)" % (msg, n, total, 100.0 * n / total)
+
+
 def configure_logger(level, format):
     logger.setLevel(level)
     h = logging.StreamHandler()
