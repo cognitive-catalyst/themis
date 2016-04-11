@@ -6,43 +6,26 @@ import pandas
 import requests
 
 from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ensure_directory_exists, ANSWER, TITLE, \
-    FILENAME, QUESTION_ID, from_csv, percent_complete_message
+    FILENAME, QUESTION_ID, from_csv, percent_complete_message, FREQUENCY
+from themis.wea import USER_EXPERIENCE, DATE_TIME
 
 
-def download_from_xmgr(url, username, password, output_directory, checkpoint_frequency, max_docs):
+def download_truth_from_xmgr(xmgr, output_directory):
     """
-    Download truth and corpus from an XMGR project
+    Download truth from an XMGR project.
 
-    This creates the following files in the output directory:
+    Truth is a mapping of sets of questions to answer documents. Truth is used to train the WEA model and may be used
+    to train an NLC model.
 
-    * truth.csv ... Mapping of questions to answer ids
-    * truth.json ... all truth mappings retrieved from xmgr
-    * corpus.csv ... Mapping of answer ids to answer text
+    This function creates two files in the output directory: a raw truth.json that contains all the information
+    downloaded from XMGR and a filtered truth.csv file.
 
-    The output directory is created if it does not exist. Intermediary results are stored so if
-    a download fails in the middle it can be restarted from where it left off.
-
-    :param url: project URL
-    :type url: str
-    :param username: username
-    :type username: str
-    :param password: password
-    :type password: str
-    :param output_directory: directory in which to write XMGR files
+    :param xmgr: connection to an XMGR project REST API
+    :type xmgr: XmgrProject
+    :param output_directory: directory in which to create truth.json and truth.csv
     :type output_directory: str
-    :checkpoint_frequency: how often to write intermediate results to a checkpoint file
-    :type checkpoint_frequency: int
-    :param max_docs: maximum number of corpus documents to download, if None, download them all
-    :type max_docs: int
     """
     ensure_directory_exists(output_directory)
-    xmgr = XmgrProject(url, username, password)
-    download_truth(xmgr, output_directory)
-    download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs)
-    verify_answer_ids(output_directory)
-
-
-def download_truth(xmgr, output_directory):
     truth_json = os.path.join(output_directory, "truth.json")
     truth_csv = os.path.join(output_directory, "truth.csv")
     if os.path.isfile(truth_json) and os.path.isfile(truth_csv):
@@ -83,7 +66,25 @@ def get_truth_from_mapped_questions(mapped_questions):
     return truth
 
 
-def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
+def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_docs):
+    """
+    Download the corpus from an XMGR project
+
+    A corpus is a mapping of answer text to answer Ids. It also contains answer titles and the names of the documents
+    from which the answers were extracted.
+
+    This can take a long time to complete, so intermediate results are saved in the directory. If you restart an
+    incomplete download it will pick up where it left off.
+
+    :param xmgr: connection to an XMGR project REST API
+    :type xmgr: XmgrProject
+    :param output_directory: directory into which write the corpus.csv file
+    :type output_directory: str
+    :checkpoint_frequency: how often to write intermediate results to a checkpoint file
+    :type checkpoint_frequency: int
+    :param max_docs: maximum number of corpus documents to download, if None, download them all
+    :type max_docs: int
+    """
     pau_ids_csv = os.path.join(output_directory, "pau_ids.csv")
     corpus_csv = os.path.join(output_directory, "corpus.csv")
     if not os.path.isfile(pau_ids_csv) and os.path.isfile(corpus_csv):
@@ -138,6 +139,7 @@ def download_corpus(xmgr, output_directory, checkpoint_frequency, max_docs):
         corpus_csv_checkpoint.close()
     logger.info("%d PAU ids, %d with PAUs (%0.4f)" % (n, m, m / float(n)))
     os.remove(pau_ids_csv)
+    verify_answer_ids(output_directory)
 
 
 def serialize_pau_ids(pau_ids):
@@ -166,18 +168,79 @@ def verify_answer_ids(output_directory):
         to_csv(truth_csv, truth)
 
 
-class DownloadFromXmgrClosure(object):
-    def __init__(self, url, username, password, output_directory, checkpoint_frequency, max_docs):
-        self.url = url
-        self.username = username
-        self.password = password
+def create_question_set_from_usage_logs(usage_log, sample_size):
+    """
+    Extract question text and the frequency with which a question was asked from the XMGR QuestionsData.csv report log,
+    ignoring questions that were handled solely by dialog.
+
+    This also ignores answers that begin "Here's Watson's response, but remember it's best to use full sentences.",
+    because WEA does not log what the actual answer was for these.
+
+    Optionally sample of a set of questions. The sampled question frequency will be drawn from the same distribution as
+    the original one in the logs.
+
+    :param usage_log: QuestionsData.csv report log
+    :type usage_log: pandas.DataFrame
+    :param sample_size: number of questions to sample, use all questions if None
+    :type n: int
+    :return: questions
+    :rtype: pandas.DataFrame
+    """
+    # TODO This filtering is Deakin-specific.
+    usage_log = usage_log[~usage_log[USER_EXPERIENCE].isin(["DIALOG", "Dialog Response"])]
+    usage_log = usage_log[
+        ~usage_log[ANSWER].str.contains("Here's Watson's response, but remember it's best to use full sentences.")]
+    questions = question_frequency(usage_log)
+    if sample_size is not None:
+        questions = questions.sample(n=sample_size, weights=questions[FREQUENCY])
+    logger.info("Test set with %d unique questions" % len(questions))
+    return questions[[QUESTION]]
+
+
+def filter_usage_log_by_date(usage_log, before, after):
+    """
+    Filter questions from usage log by time.
+
+    :param usage_log: QuestionsData.csv report log
+    :type usage_log: pandas.DataFrame
+    :param before: only use questions from before this date
+    :type before:
+    :param after: only use questions from after this date
+    :type after:
+    :return: usage log with questions in the specified time span
+    :rtype: pandas.DataFrame
+    """
+    if after is not None:
+        usage_log = usage_log[usage_log[DATE_TIME] >= after]
+    if before is not None:
+        usage_log = usage_log[usage_log[DATE_TIME] <= before]
+    return usage_log
+
+
+def question_frequency(usage_log):
+    """
+    Count the number of times each question appears in the usage log.
+
+    :param usage_log: QuestionsData.csv report log
+    :type usage_log: pandas.DataFrame
+    :return: table of question and frequency
+    :rtype: pandas.DataFrame
+    """
+    questions = pandas.merge(usage_log.drop_duplicates(QUESTION),
+                             usage_log.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
+    questions = questions[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
+    return questions.set_index(QUESTION)
+
+
+class DownloadCorpusFromXmgrClosure(object):
+    def __init__(self, xmgr, output_directory, checkpoint_frequency, max_docs):
+        self.xmgr = xmgr
         self.output_directory = output_directory
         self.checkpoint_frequency = checkpoint_frequency
         self.max_docs = max_docs
 
     def __call__(self):
-        download_from_xmgr(self.url, self.username, self.password, self.output_directory, self.checkpoint_frequency,
-                           self.max_docs)
+        download_corpus_from_xmgr(self.xmgr, self.output_directory, self.checkpoint_frequency, self.max_docs)
 
 
 class XmgrProject(object):

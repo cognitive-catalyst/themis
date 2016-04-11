@@ -1,19 +1,16 @@
 import argparse
 import json
 
-import pandas
-
 from annotate import create_annotation_assist_files, AnnotationAssistFileType, \
     add_judgments_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
 from curves import roc_curve, precision_curve, plot_curves
 from nlc import classifier_list, NLC, train_nlc, remove_classifiers, classifier_status
 from test import answer_questions, Solr
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT, \
-    ANSWER_ID, retry
+    ANSWER_ID
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, augment_system_logs, \
-    filter_corpus, WeaLogFileType
-from wea import wea_test, create_test_set_from_wea_logs
-from xmgr import DownloadFromXmgrClosure
+    WeaLogFileType
+from wea import wea_test
 
 
 def run():
@@ -25,31 +22,6 @@ def run():
                                                    "using various Q&A systems, annotate the answers and analyze " +
                                                    "the results",
                                        help="command to run")
-
-    xmgr_parser = subparsers.add_parser("xmgr", help="download information from XMGR")
-    xmgr_parser.add_argument("url", type=str, help="XMGR url")
-    xmgr_parser.add_argument("username", type=str, help="XMGR username")
-    xmgr_parser.add_argument("password", type=str, help="XMGR password")
-    xmgr_parser.add_argument("--output-directory", type=str, default=".", help="output directory")
-    xmgr_parser.add_argument("--checkpoint-frequency", type=int, default=100,
-                             help="how often to flush to a checkpoint file")
-    xmgr_parser.add_argument("--max-docs", type=int, help="maximum number of corpus documents to download")
-    xmgr_parser.add_argument("--retries", type=int, help="number of times to retry downloading after an error")
-    xmgr_parser.set_defaults(func=xmgr_handler)
-
-    filter_corpus_parser = subparsers.add_parser("filter", help="filter the corpus downloaded from XMGR")
-    filter_corpus_parser.add_argument("corpus", type=CsvFileType(), help="corpus file created by the xmgr command")
-    filter_corpus_parser.add_argument("--max-size", type=int, help="maximum size of answer text")
-    filter_corpus_parser.set_defaults(func=filter_handler)
-
-    test_set_parser = subparsers.add_parser("test-set",
-                                            help="create test set of questions and their frequencies from XMGR logs")
-    test_set_parser.add_argument("logs", type=WeaLogFileType(), help="QuestionsData.csv log file from XMGR")
-    test_set_parser.add_argument("--before", type=pandas.to_datetime,
-                                 help="keep interactions before the specified date")
-    test_set_parser.add_argument("--after", type=pandas.to_datetime, help="keep interactions after the specified date")
-    test_set_parser.add_argument("--n", type=int, help="sample size")
-    test_set_parser.set_defaults(func=test_set_handler)
 
     wea_parser = subparsers.add_parser("wea", help="answer questions with WEA logs")
     wea_parser.add_argument("test_set", metavar="test-set", type=CsvFileType(),
@@ -141,23 +113,6 @@ def run():
 
     configure_logger(args.log.upper(), "%(asctime)-15s %(levelname)-8s %(message)s")
     args.func(args)
-
-
-def xmgr_handler(args):
-    c = DownloadFromXmgrClosure(args.url, args.username, args.password, args.output_directory,
-                                args.checkpoint_frequency,
-                                args.max_docs)
-    retry(c, args.retries)
-
-
-def filter_handler(args):
-    corpus = filter_corpus(args.corpus, args.max_size)
-    print_csv(corpus)
-
-
-def test_set_handler(args):
-    test_set = create_test_set_from_wea_logs(args.logs, args.before, args.after, args.n)
-    print_csv(test_set)
 
 
 def wea_handler(args):

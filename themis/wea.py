@@ -2,7 +2,7 @@ import re
 
 import pandas
 
-from themis import logger, QUESTION, CONFIDENCE, FREQUENCY, ANSWER, ANSWER_ID, CsvFileType
+from themis import logger, QUESTION, CONFIDENCE, ANSWER, ANSWER_ID, CsvFileType
 
 # Column headers in WEA logs
 QUESTION_TEXT = "QuestionText"
@@ -10,45 +10,6 @@ TOP_ANSWER_TEXT = "TopAnswerText"
 USER_EXPERIENCE = "UserExperience"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 DATE_TIME = "DateTime"
-
-
-def create_test_set_from_wea_logs(wea_logs, before, after, n):
-    """
-    Extract question text and the frequency with which a question was asked from the XMGR QuestionsData.csv report log,
-    ignoring questions that were handled solely by dialog.
-
-    This also ignores answers that begin "Here's Watson's response, but remember it's best to use full sentences.",
-    because WEA does not log what the actual answer was for these.
-
-    Optionally sample of a set of questions. The sampled question frequency will be drawn from the same distribution as
-    the original one in the logs.
-
-    :param wea_logs: QuestionsData.csv report log
-    :type wea_logs: pandas.DataFrame
-    :param before: only use questions from before this date
-    :type before:
-    :param after: only use questions from after this date
-    :type after:
-    :param n: number of questions to sample, use all questions if None
-    :type n: int
-    :return: questions and their frequencies
-    :rtype: pandas.DataFrame
-    """
-    wea_logs = wea_logs[~wea_logs[USER_EXPERIENCE].isin(["DIALOG", "Dialog Response"])]
-    wea_logs = wea_logs[
-        ~wea_logs[ANSWER].str.contains("Here's Watson's response, but remember it's best to use full sentences.")]
-    if after is not None:
-        wea_logs = wea_logs[wea_logs[DATE_TIME] >= after]
-    if before is not None:
-        wea_logs = wea_logs[wea_logs[DATE_TIME] <= before]
-    # Frequency is the number of times the question appeared in the report log.
-    test_set = pandas.merge(wea_logs.drop_duplicates(QUESTION),
-                            wea_logs.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
-    if n is not None:
-        test_set = test_set.sample(n=n, weights=test_set[FREQUENCY])
-    logger.info("Test set with %d unique questions" % len(test_set))
-    test_set = test_set[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
-    return test_set.set_index(QUESTION)
 
 
 def wea_test(test_set, wea_logs):
