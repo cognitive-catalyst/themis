@@ -12,25 +12,27 @@ TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 DATE_TIME = "DateTime"
 
 
-def wea_test(test_set, wea_logs):
+def ask_wea(questions, usage_log):
     """
     Get answers returned by WEA to questions by looking them up in the usage logs.
 
-    :param test_set: Question and Frequency information
-    :type test_set: pandas.DataFrame
-    :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
-    :type wea_logs: pandas.DataFrame
+    :param questions: questions to look up in the usage logs
+    :type questions: pandas.DataFrame
+    :param usage_log: user interaction logs from QuestionsData.csv XMGR report
+    :type usage_log: pandas.DataFrame
     :return: Question, Answer, and Confidence
     :rtype: pandas.DataFrame
     """
-    wea_logs = fix_confidence_ranges(wea_logs)
-    wea_logs = wea_logs.drop_duplicates(QUESTION)
-    answers = pandas.merge(test_set, wea_logs, on=QUESTION)
+    # TODO Confidence range fixup may be Deakin-specific.
+    usage_log = fix_confidence_ranges(usage_log)
+    usage_log = usage_log.drop_duplicates(QUESTION)
+    answers = pandas.merge(questions, usage_log, on=QUESTION)
     missing_answers = answers[answers[ANSWER].isnull()]
     if len(missing_answers):
         logger.warning("%d questions without answers" % len(missing_answers))
     logger.info("Answered %d questions" % len(answers))
-    return answers[[QUESTION, ANSWER, CONFIDENCE]].sort_values(QUESTION).set_index(QUESTION)
+    answers = answers[[QUESTION, ANSWER, CONFIDENCE]].sort_values([QUESTION, CONFIDENCE], ascending=[True, False])
+    return answers.set_index(QUESTION)
 
 
 def fix_confidence_ranges(wea_logs):
