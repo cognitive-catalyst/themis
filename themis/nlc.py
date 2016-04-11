@@ -3,7 +3,7 @@ import tempfile
 
 from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID, ANSWER
+from themis import logger, to_csv, QUESTION, ANSWER_ID, ANSWER, pretty_print_json
 
 
 def classifier_list(url, username, password):
@@ -31,7 +31,7 @@ def train_nlc(url, username, password, truth, name):
         training_file.seek(0)
         nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
         r = nlc.create(training_data=training_file, name=name)
-        logger.info((json.dumps(r, indent=2)))
+        logger.info(pretty_print_json(r))
     return r["classifier_id"]
 
 

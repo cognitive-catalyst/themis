@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import time
@@ -138,6 +139,10 @@ def sample(sample_size, items, frequency, item_name, frequency_name):
 
 def percent_complete_message(msg, n, total):
     return "%s %d of %d (%0.3f%%)" % (msg, n, total, 100.0 * n / total)
+
+
+def pretty_print_json(j):
+    return json.dumps(j, indent=2)
 
 
 def configure_logger(level, format):

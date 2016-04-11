@@ -16,9 +16,8 @@ NLC
     5. delete
 """
 import argparse
-import json
 
-from themis import CsvFileType, ANSWER, ANSWER_ID, to_csv
+from themis import CsvFileType, ANSWER, ANSWER_ID, to_csv, pretty_print_json
 from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
 from themis.test import answer_questions, Solr
 from themis.wea import WeaLogFileType, ask_wea
@@ -96,7 +95,7 @@ def nlc_use_handler(args):
 
 
 def nlc_list_handler(args):
-    print(json.dumps(classifier_list(args.url, args.username, args.password), indent=2))
+    print(pretty_print_json(classifier_list(args.url, args.username, args.password)))
 
 
 def nlc_status_handler(args):
