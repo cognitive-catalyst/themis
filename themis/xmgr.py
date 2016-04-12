@@ -186,16 +186,21 @@ def create_question_set_from_usage_logs(usage_log, sample_size):
     :return: questions in frequency then lexical order
     :rtype: pandas.DataFrame
     """
-    # TODO This filtering is Deakin-specific.
-    usage_log = usage_log[~usage_log[USER_EXPERIENCE].isin(["DIALOG", "Dialog Response"])]
-    usage_log = usage_log[
-        ~usage_log[ANSWER].str.contains("Here's Watson's response, but remember it's best to use full sentences.")]
-    questions = question_frequency(usage_log)
+    usage_log = filter_questions(usage_log)
+    questions = question_frequency(usage_log).reset_index()
     if sample_size is not None:
         questions = questions.sample(n=sample_size, weights=questions[FREQUENCY])
         questions = questions.sort_values([FREQUENCY, QUESTION], ascending=[False, True])
     logger.info("%d unique questions" % len(questions))
-    return questions[[QUESTION]].set_index(QUESTION)
+    return questions.set_index(QUESTION)
+
+
+# TODO This filtering is Deakin-specific.
+def filter_questions(usage_log):
+    usage_log = usage_log[~usage_log[USER_EXPERIENCE].isin(["DIALOG", "Dialog Response"])]
+    usage_log = usage_log[
+        ~usage_log[ANSWER].str.contains("Here's Watson's response, but remember it's best to use full sentences.")]
+    return usage_log
 
 
 def filter_usage_log_by_date(usage_log, before, after):
@@ -227,10 +232,11 @@ def question_frequency(usage_log):
     :return: table of question and frequency
     :rtype: pandas.DataFrame
     """
+    usage_log = filter_questions(usage_log)
     questions = pandas.merge(usage_log.drop_duplicates(QUESTION),
                              usage_log.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
     questions = questions[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
-    return questions
+    return questions.set_index(QUESTION)
 
 
 class DownloadCorpusFromXmgrClosure(object):
