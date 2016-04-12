@@ -54,11 +54,12 @@ def xmgr_command(subparsers):
     xmgr_truth.set_defaults(func=truth_handler)
     # Extract questions from the usage log.
     xmgr_questions = subparsers.add_parser("questions", help="extract question sets from the usage log")
-    xmgr_questions.add_argument("usage_log", type=WeaLogFileType(), help="QuestionsData.csv usage log file from XMGR")
+    xmgr_questions.add_argument("usage_log", metavar="usage-log", type=WeaLogFileType(),
+                                help="QuestionsData.csv usage log file from XMGR")
     xmgr_questions.add_argument("--before", type=pandas.to_datetime,
                                 help="keep interactions before the specified date")
     xmgr_questions.add_argument("--after", type=pandas.to_datetime, help="keep interactions after the specified date")
-    xmgr_questions.add_argument("--sample_size", type=int,
+    xmgr_questions.add_argument("--sample-size", metavar="N", type=int,
                                 help="number of unique questions to sample, default is to use them all")
     xmgr_questions.set_defaults(func=questions_handler)
     # Get question frequencies from the usage log.

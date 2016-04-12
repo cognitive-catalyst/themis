@@ -4,10 +4,11 @@ Command line interface for Themis.
 import argparse
 
 from themis import configure_logger
-from themis.cli.analyze import curves_command
+from themis.cli.curves import curves_command
 from themis.cli.judge import judge_command
 from themis.cli.qa import qa_command
 from themis.cli.xmgr import xmgr_command
+
 
 
 def run():
@@ -27,7 +28,7 @@ def run():
     # Judge answers using Annotation Assist.
     judge_command(subparsers)
     # Generate ROC and precision curves from judged answers.
-    curves_command(subparsers)
+    curves_command(parser, subparsers)
 
     args = parser.parse_args()
     configure_logger(args.log.upper(), "%(asctime)-15s %(levelname)-8s %(message)s")

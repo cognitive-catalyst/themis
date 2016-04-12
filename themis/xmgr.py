@@ -183,7 +183,7 @@ def create_question_set_from_usage_logs(usage_log, sample_size):
     :type usage_log: pandas.DataFrame
     :param sample_size: number of questions to sample, use all questions if None
     :type n: int
-    :return: questions
+    :return: questions in frequency then lexical order
     :rtype: pandas.DataFrame
     """
     # TODO This filtering is Deakin-specific.
@@ -193,8 +193,9 @@ def create_question_set_from_usage_logs(usage_log, sample_size):
     questions = question_frequency(usage_log)
     if sample_size is not None:
         questions = questions.sample(n=sample_size, weights=questions[FREQUENCY])
-    logger.info("Test set with %d unique questions" % len(questions))
-    return questions[[QUESTION]]
+        questions = questions.sort_values([FREQUENCY, QUESTION], ascending=[False, True])
+    logger.info("%d unique questions" % len(questions))
+    return questions[[QUESTION]].set_index(QUESTION)
 
 
 def filter_usage_log_by_date(usage_log, before, after):
@@ -229,7 +230,7 @@ def question_frequency(usage_log):
     questions = pandas.merge(usage_log.drop_duplicates(QUESTION),
                              usage_log.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
     questions = questions[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
-    return questions.set_index(QUESTION)
+    return questions
 
 
 class DownloadCorpusFromXmgrClosure(object):
