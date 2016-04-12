@@ -1,6 +1,6 @@
 import argparse
 
-from annotate import AnnotationAssistFileType, add_judgments_and_frequencies_to_qa_pairs, mark_annotation_assist_correct
+from annotate import AnnotationAssistFileType, add_judgments_and_frequencies_to_qa_pairs, interpret_annotation_assist
 from curves import roc_curve, precision_curve, plot_curves
 from themis import configure_logger, CsvFileType, QUESTION, ANSWER, print_csv, CONFIDENCE, FREQUENCY, logger, CORRECT
 from wea import QUESTION_TEXT, TOP_ANSWER_TEXT, augment_system_logs
@@ -55,7 +55,7 @@ def run():
 
 def curves_handler(args):
     data = add_judgments_and_frequencies_to_qa_pairs(args.answers, args.judgments, args.test_set)
-    data = mark_annotation_assist_correct(data, args.judgment_threshold)
+    data = interpret_annotation_assist(data, args.judgment_threshold)
     if args.type == "roc":
         curve = roc_curve(data)
     elif args.type == "precision":
