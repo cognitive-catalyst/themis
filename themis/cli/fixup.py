@@ -2,7 +2,7 @@ import pandas
 
 from themis import print_csv
 from themis.fixup import filter_corpus, filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin
-from themis.wea import WeaLogFileType
+from themis.usage_log import UsageLogFileType
 from themis.xmgr import CorpusFileType
 
 
@@ -17,7 +17,7 @@ def fixup_command(subparsers):
     fixup_corpus.set_defaults(func=fixup_corpus_handler)
     # Fixup usage log.
     fixup_usage_log = subparsers.add_parser("usage", help="fix up usage log")
-    fixup_usage_log.add_argument("usage_log", metavar="usage-log", type=WeaLogFileType(),
+    fixup_usage_log.add_argument("usage_log", metavar="usage-log", type=UsageLogFileType(),
                                  help="QuestionsData.csv usage log file from XMGR")
     fixup_usage_log.add_argument("--before", metavar="DATE", type=pandas.to_datetime,
                                  help="keep interactions before the specified date")

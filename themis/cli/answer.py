@@ -20,7 +20,7 @@ import argparse
 from themis import CsvFileType, ANSWER_ID, to_csv, pretty_print_json
 from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
 from themis.test import answer_questions, Solr
-from themis.wea import WeaLogFileType, ask_wea
+from themis.usage_log import UsageLogFileType, get_answers_from_usage_log
 from themis.xmgr import CorpusFileType
 
 
@@ -39,7 +39,7 @@ def answer_command(subparsers):
 
     # Extract answers from the usage log.
     answer_wea = subparsers.add_parser("wea", parents=[qa_shared_arguments], help="extract WEA answers from usage log")
-    answer_wea.add_argument("usage_log", metavar="usage-log", type=WeaLogFileType(),
+    answer_wea.add_argument("usage_log", metavar="usage-log", type=UsageLogFileType(),
                             help="QuestionsData.csv usage log file from XMGR")
     answer_wea.set_defaults(func=wea_handler)
 
@@ -83,7 +83,7 @@ def answer_command(subparsers):
 
 
 def wea_handler(args):
-    wea_answers = ask_wea(args.questions, args.usage_log)
+    wea_answers = get_answers_from_usage_log(args.questions, args.usage_log)
     to_csv(args.output, wea_answers)
 
 

@@ -13,9 +13,9 @@ TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 DATE_TIME = "DateTime"
 
 
-def ask_wea(questions, usage_log):
+def get_answers_from_usage_log(questions, usage_log):
     """
-    Get answers returned by WEA to questions by looking them up in the usage logs.
+    Get answers returned by WEA to questions by looking them up in the usage log.
 
     :param questions: questions to look up in the usage logs
     :type questions: pandas.DataFrame
@@ -34,28 +34,29 @@ def ask_wea(questions, usage_log):
     return answers.set_index(QUESTION)
 
 
-def augment_system_logs(wea_logs, annotation_assist):
+def augment_usage_log(usage_log, annotation_assist):
     """
-    Add In Purview and Annotation Score information to system usage logs
+    Add In Purview and Annotation Score information to system usage log.
 
-    :param wea_logs: user interaction logs from QuestionsData.csv XMGR report
-    :type wea_logs: pandas.DataFrame
+    :param usage_log: user interaction logs from QuestionsData.csv XMGR report
+    :type usage_log: pandas.DataFrame
     :param annotation_assist: Annotation Assist judgments
     :type annotation_assist: pandas.DataFrame
     :return: user interaction logs with additional columns
     :rtype: pandas.DataFrame
     """
-    wea_logs[ANSWER] = wea_logs[ANSWER].str.replace("\n", "")
-    augmented = pandas.merge(wea_logs, annotation_assist, on=(QUESTION, ANSWER), how="left")
-    n = len(wea_logs[[QUESTION, ANSWER]].drop_duplicates())
-    m = len(annotation_assist)
-    logger.info("%d unique question/answer pairs, %d judgments (%0.3f)" % (n, m, m / float(n)))
+    usage_log[ANSWER] = usage_log[ANSWER].str.replace("\n", "")
+    augmented = pandas.merge(usage_log, annotation_assist, on=(QUESTION, ANSWER), how="left")
+    n = len(usage_log[[QUESTION, ANSWER]].drop_duplicates())
+    if n:
+        m = len(annotation_assist)
+        logger.info("%d unique question/answer pairs, %d judgments (%0.3f%%)" % (n, m, 100.0 * m / n))
     return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})
 
 
-class WeaLogFileType(CsvFileType):
+class UsageLogFileType(CsvFileType):
     """
-    Read the QuestionsData.csv file in the XMGR usage report logs.
+    Read the QuestionsData.csv file in the usage log.
     """
 
     WEA_DATE_FORMAT = re.compile(
@@ -82,5 +83,5 @@ class WeaLogFileType(CsvFileType):
         :return: standard date
         :rtype: str
         """
-        m = WeaLogFileType.WEA_DATE_FORMAT.match(s).groupdict()
+        m = UsageLogFileType.WEA_DATE_FORMAT.match(s).groupdict()
         return "%s-%s-%sT%s:%s:%sZ" % (m['year'], m['month'], m['day'], m['hour'], m['min'], m['sec'])

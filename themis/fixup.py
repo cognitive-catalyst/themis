@@ -1,7 +1,7 @@
 import pandas
 
 from themis import ANSWER, logger, ANSWER_ID, CONFIDENCE
-from themis.wea import DATE_TIME, USER_EXPERIENCE
+from themis.usage_log import DATE_TIME, USER_EXPERIENCE
 
 
 def filter_corpus(corpus, max_size):

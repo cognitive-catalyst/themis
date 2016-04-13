@@ -1,13 +1,13 @@
 import argparse
 
 from themis import print_csv
-from themis.wea import WeaLogFileType
+from themis.usage_log import UsageLogFileType
 from themis.xmgr import create_question_set_from_usage_logs, question_frequency
 
 
 def question_command(subparsers):
     questions_shared_arguments = argparse.ArgumentParser(add_help=False)
-    questions_shared_arguments.add_argument("usage_log", metavar="usage-log", type=WeaLogFileType(),
+    questions_shared_arguments.add_argument("usage_log", metavar="usage-log", type=UsageLogFileType(),
                                             help="QuestionsData.csv usage log file from XMGR")
 
     question_parser = subparsers.add_parser("question", help="extract questions from usage logs")
