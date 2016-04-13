@@ -114,29 +114,6 @@ def retry(function, times):
                 logger.info("Done retrying")
 
 
-def sample(sample_size, items, frequency, item_name, frequency_name):
-    """
-    Sample rows from the items table so that there are n unique items in a specified column. The sampling is done
-    using frequencies in a separate table.
-
-    :param sample_size: number of items to sample
-    :type sample_size: int
-    :param items: table to sample from
-    :type items: pandas.DataFrame
-    :param frequency: table of frequencies
-    :type frequency: pandas.DataFrame
-    :param item_name: column in the items table to sample
-    :type item_name: str
-    :param frequency_name: column in frequency table that defines the sampling distribution
-    :type frequency_name: str
-    :return: subset of the items table
-    :rtype: pandas.DataFrame
-    """
-    t = pandas.merge(pandas.DataFrame({item_name: items[item_name].drop_duplicates()}), frequency, on=item_name)
-    s = pandas.DataFrame({item_name: t.sample(sample_size, weights=frequency_name)[item_name]})
-    return pandas.merge(s, items)
-
-
 def percent_complete_message(msg, n, total):
     return "%s %d of %d (%0.3f%%)" % (msg, n, total, 100.0 * n / total)
 
