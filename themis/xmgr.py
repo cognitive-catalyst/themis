@@ -193,7 +193,7 @@ def create_question_set_from_usage_logs(usage_log, sample_size):
         questions = questions.sample(n=sample_size, weights=questions[FREQUENCY])
         questions = questions.sort_values([FREQUENCY, QUESTION], ascending=[False, True])
     logger.info("%d unique questions" % len(questions))
-    return questions.set_index(QUESTION)
+    return questions[[QUESTION]].set_index(QUESTION)
 
 
 # TODO This filtering is Deakin-specific.
@@ -300,3 +300,8 @@ class XmgrProject(object):
         r = requests.get(url, auth=(self.username, self.password), params=params, headers=headers)
         logger.debug("GET %s, Status %d" % (url, r.status_code))
         return r.json()
+
+
+class CorpusFileType(CsvFileType):
+    def __init__(self):
+        super(self.__class__, self).__init__([ANSWER_ID, ANSWER, TITLE, FILENAME])
