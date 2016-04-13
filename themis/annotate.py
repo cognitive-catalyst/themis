@@ -35,6 +35,7 @@ def annotation_assist_qa_input(answers, questions, judgments):
     """
     qa_pairs = pandas.concat(answers)
     qa_pairs = qa_pairs.drop_duplicates([QUESTION, ANSWER])
+    qa_pairs = strip_newlines_from_answer_text(qa_pairs)
     logger.info("%d Q&A pairs" % len(qa_pairs))
     if questions is not None:
         qa_pairs = pandas.merge(qa_pairs, questions)
@@ -42,9 +43,10 @@ def annotation_assist_qa_input(answers, questions, judgments):
     if judgments:
         judged_qa_pairs = pandas.concat(judgments)
         assert not any(judged_qa_pairs.duplicated()), "There are Q&A pairs with multiple judgements"
-        judged = pandas.merge(qa_pairs, judged_qa_pairs, on=(QUESTION, ANSWER))
-        not_judged = qa_pairs[~qa_pairs[[QUESTION, ANSWER]].isin(judged[[QUESTION, ANSWER]])]
-        logger.info("%d unjudged Q&A pairs" % len(not_judged))
+        qa_pairs = pandas.merge(qa_pairs, judged_qa_pairs, on=(QUESTION, ANSWER), how="left")
+        not_judged = qa_pairs[qa_pairs[CORRECT].isnull()]
+        n = len(not_judged)
+        logger.info("%d unjudged Q&A pairs (%0.3f%%)" % (n, 100.0 * n / len(qa_pairs)))
     else:
         not_judged = qa_pairs
     not_judged = not_judged.rename(
@@ -93,7 +95,7 @@ def interpret_annotation_assist(annotation_assist, judgment_threshold):
     return annotation_assist.drop(ANNOTATION_SCORE, axis="columns").set_index([QUESTION, ANSWER])
 
 
-def add_judgments_and_frequencies_to_qa_pairs(system_answers, judgments, question_frequencies):
+def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies):
     """
     Collate system answer confidences and annotator judgments by question/answer pair.
     Add to each pair the question frequency.
@@ -103,8 +105,8 @@ def add_judgments_and_frequencies_to_qa_pairs(system_answers, judgments, questio
     system answers that haven't been annotated yet. If multiple systems are being judged, there may be Q/A pairs in the
     judgements that don't appear in the system answers.
 
-    :param system_answers: question, answer, and confidence provided by a Q&A system
-    :type system_answers: pandas.DataFrame
+    :param qa_pairs: question, answer, and confidence provided by a Q&A system
+    :type qa_pairs: pandas.DataFrame
     :param judgments: question, answer, in purview, and judgement provided by annotators
     :type judgments: pandas.DataFrame
     :param question_frequencies: question and question frequency in the test set
@@ -112,10 +114,23 @@ def add_judgments_and_frequencies_to_qa_pairs(system_answers, judgments, questio
     :return: question and answer pairs with confidence, in purview, judgement and question frequency
     :rtype: pandas.DataFrame
     """
-    # The Annotation Assist tool strips newlines, so remove them from the answer text in the system output as well.
-    system_answers[ANSWER] = system_answers[ANSWER].str.replace("\n", "")
-    system_answers = pandas.merge(system_answers, judgments, on=(QUESTION, ANSWER))
-    return pandas.merge(system_answers, question_frequencies, on=QUESTION)
+    qa_pairs = strip_newlines_from_answer_text(qa_pairs)
+    qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER))
+    return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)
+
+
+def strip_newlines_from_answer_text(qa_pairs):
+    """
+    The Annotation Assist tool strips newlines from answer text, so remove them from the answer text of any data frame
+    that needs to be aligned with Annotation Assist output.
+
+    :param qa_pairs: table containing answer text
+    :type qa_pairs: pandas.DataFrame
+    :return: table with newlines removed from the answer text
+    :rtype: pandas.DataFrame
+    """
+    qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
+    return qa_pairs
 
 
 class AnnotationAssistFileType(CsvFileType):

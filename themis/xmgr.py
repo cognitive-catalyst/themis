@@ -6,7 +6,7 @@ import pandas
 import requests
 
 from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ensure_directory_exists, ANSWER, TITLE, \
-    FILENAME, QUESTION_ID, from_csv, percent_complete_message, FREQUENCY
+    FILENAME, QUESTION_ID, from_csv, percent_complete_message, FREQUENCY, CsvFileType
 from themis.wea import USER_EXPERIENCE, DATE_TIME
 
 
@@ -237,6 +237,11 @@ def question_frequency(usage_log):
                              usage_log.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
     questions = questions[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
     return questions.set_index(QUESTION)
+
+
+class FrequencyFileType(CsvFileType):
+    def __init__(self):
+        super(self.__class__, self).__init__([QUESTION, FREQUENCY])
 
 
 class DownloadCorpusFromXmgrClosure(object):

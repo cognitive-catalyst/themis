@@ -10,7 +10,6 @@ from themis.cli.qa import qa_command
 from themis.cli.xmgr import xmgr_command
 
 
-
 def run():
     parser = argparse.ArgumentParser(description="Themis analysis toolkit")
     parser.add_argument("--log", default="INFO", help="logging level")
@@ -21,6 +20,7 @@ def run():
                                                    "the results",
                                        help="command to run")
 
+    # TODO Rename commands to download, question, answer, judge, curve. Split xmgr functionality between download and question.
     # Download information from xmgr.
     xmgr_command(subparsers)
     # Ask questions to a Q&A system.
