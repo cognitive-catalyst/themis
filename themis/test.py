@@ -2,7 +2,8 @@ import re
 
 # noinspection PyPackageRequirements
 import solr
-from themis import logger, DataFrameCheckpoint, QUESTION, ANSWER, CONFIDENCE, percent_complete_message
+from themis import logger, DataFrameCheckpoint, percent_complete_message
+from themis import QUESTION, ANSWER, CONFIDENCE
 
 
 def answer_questions(system, test_set, output_filename, checkpoint_frequency):

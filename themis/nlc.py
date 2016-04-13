@@ -1,9 +1,9 @@
-import json
 import tempfile
 
 from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID, ANSWER, pretty_print_json
+from themis import QUESTION, ANSWER_ID, ANSWER
+from themis import logger, to_csv, pretty_print_json
 
 
 def classifier_list(url, username, password):

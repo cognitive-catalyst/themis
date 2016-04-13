@@ -5,8 +5,9 @@ import os
 import pandas
 import requests
 
-from themis import logger, to_csv, QUESTION, ANSWER_ID, DataFrameCheckpoint, ensure_directory_exists, ANSWER, TITLE, \
-    FILENAME, QUESTION_ID, from_csv, percent_complete_message, FREQUENCY, CsvFileType
+from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, FREQUENCY
+from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, from_csv, percent_complete_message, \
+    CsvFileType
 from themis.wea import USER_EXPERIENCE, DATE_TIME
 
 

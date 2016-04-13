@@ -2,8 +2,8 @@ import json
 
 import pandas
 
-from themis import ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, logger, CONFIDENCE, CsvFileType, IN_PURVIEW, CORRECT, \
-    pretty_print_json
+from themis import ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, CONFIDENCE, IN_PURVIEW, CORRECT
+from themis import logger, CsvFileType, pretty_print_json
 
 QUESTION_TEXT_INPUT = "QuestionText"  # Column header for input file required by Annotation Assist
 QUESTION_TEXT_OUTPUT = "Question_Text"  # Columns header for output file created by Annotation Assist

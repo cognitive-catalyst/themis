@@ -2,7 +2,8 @@ import re
 
 import pandas
 
-from themis import logger, QUESTION, CONFIDENCE, ANSWER, ANSWER_ID, CsvFileType
+from themis import QUESTION, CONFIDENCE, ANSWER, ANSWER_ID
+from themis import logger, CsvFileType
 
 # Column headers in WEA logs
 QUESTION_TEXT = "QuestionText"
