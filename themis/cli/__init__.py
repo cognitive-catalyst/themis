@@ -7,6 +7,7 @@ import argparse
 from themis import configure_logger
 from themis.cli.answer import answer_command
 from themis.cli.download import download_command
+from themis.cli.fixup import fixup_command
 from themis.cli.judge import judge_command
 from themis.cli.plot import plot_command
 from themis.cli.question import question_command
@@ -19,6 +20,8 @@ def run():
     subparsers = parser.add_subparsers(title="Q&A System analysis", description=__doc__)
     # Download information from xmgr.
     download_command(subparsers)
+    # Do system-specific fixups of downloaded files.
+    fixup_command(subparsers)
     # Extract questions from usage logs.
     question_command(subparsers)
     # Ask questions to a Q&A system.
