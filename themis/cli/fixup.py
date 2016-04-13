@@ -1,6 +1,6 @@
 import pandas
 
-from themis import print_csv
+from themis import print_csv, logger
 from themis.fixup import filter_corpus, filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin
 from themis.usage_log import UsageLogFileType
 from themis.xmgr import CorpusFileType
@@ -23,7 +23,7 @@ def fixup_command(subparsers):
                                  help="keep interactions before the specified date")
     fixup_usage_log.add_argument("--after", metavar="DATE", type=pandas.to_datetime,
                                  help="keep interactions after the specified date")
-    fixup_usage_log.add_argument("--user-experience", nargs="+",
+    fixup_usage_log.add_argument("--user-experience", nargs="+", default=set(),
                                  help="disallowed User Experience values (DIALOG is always disallowed)")
     fixup_usage_log.add_argument("--deakin", action="store_true", help="fixups specific to the Deakin system")
     fixup_usage_log.set_defaults(func=fixup_usage_log_handler)
@@ -36,10 +36,14 @@ def fixup_corpus_handler(args):
 
 def fixup_usage_log_handler(args):
     usage_log = args.usage_log
+    n = len(usage_log)
     if args.before or args.after:
         usage_log = filter_usage_log_by_date(usage_log, args.before, args.after)
     user_experience = set(args.user_experience) | {"DIALOG"}  # DIALOG is always disallowed
     usage_log = filter_usage_log_by_user_experience(usage_log, user_experience)
     if args.deakin:
         usage_log = deakin(usage_log)
+    m = n - len(usage_log)
+    if n:
+        logger.info("Removed %d of %d questions (%0.3f%%)" % (m, n, 100.0 * m / n))
     print_csv(usage_log, index=False)

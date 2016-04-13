@@ -44,8 +44,7 @@ def filter_usage_log_by_date(usage_log, before, after):
     if before is not None:
         usage_log = usage_log[usage_log[DATE_TIME] <= before]
     if n:
-        m = n - len(usage_log)
-        logger.info("Filtered %d of %d questions by date (%0.3f%%)" % (m, n, 100.0 * m / n))
+        logger.info("Filtered %d questions by date" % (n - len(usage_log)))
     return usage_log
 
 
@@ -62,18 +61,17 @@ def filter_usage_log_by_user_experience(usage_log, disallowed):
     """
     n = len(usage_log)
     usage_log = usage_log[~usage_log[USER_EXPERIENCE].isin(disallowed)]
-    if n:
-        m = n - len(usage_log)
-        logger.info("Filtered %d of %d questions by user experience '%s' (%0.3f%%)" %
-                    (m, n, ",".join(disallowed), 100.0 * m / n))
+    logger.info("Removed %d questions with user experience '%s'" % ((n - len(usage_log)), ",".join(disallowed)))
     return usage_log
 
 
 def deakin(usage_log):
+    low_confidence_response = usage_log[ANSWER].str.contains(
+        "Here's Watson's response, but remember it's best to use full sentences.")
+    logger.info("Removed %d questions with low confidence responses" % sum(low_confidence_response))
+    usage_log = usage_log[~low_confidence_response]
     usage_log = filter_usage_log_by_user_experience(usage_log, ["Dialog Response"])
     usage_log = fix_confidence_ranges(usage_log)
-    usage_log = usage_log[
-        ~usage_log[ANSWER].str.contains("Here's Watson's response, but remember it's best to use full sentences.")]
     return usage_log
 
 
