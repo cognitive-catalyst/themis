@@ -20,10 +20,10 @@ def run():
     subparsers = parser.add_subparsers(title="Q&A System analysis", description=__doc__)
     # Download information from xmgr.
     download_command(subparsers)
-    # Do system-specific fixups of downloaded files.
-    fixup_command(subparsers)
     # Extract questions from usage logs.
     question_command(subparsers)
+    # Do system-specific fixups of downloaded files.
+    fixup_command(subparsers)
     # Ask questions to a Q&A system.
     answer_command(subparsers)
     # Judge answers using Annotation Assist.

@@ -182,7 +182,7 @@ def create_question_set_from_usage_logs(usage_log, sample_size):
     :param usage_log: QuestionsData.csv report log
     :type usage_log: pandas.DataFrame
     :param sample_size: number of questions to sample, use all questions if None
-    :type n: int
+    :type sample_size: int
     :return: questions in frequency then lexical order
     :rtype: pandas.DataFrame
     """
