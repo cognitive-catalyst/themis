@@ -168,47 +168,6 @@ def verify_answer_ids(output_directory):
         to_csv(truth_csv, truth)
 
 
-def create_question_set_from_usage_logs(usage_log, sample_size):
-    """
-    Extract question text and the frequency with which a question was asked from the XMGR QuestionsData.csv report log,
-    ignoring questions that were handled solely by dialog.
-
-    This also ignores answers that begin "Here's Watson's response, but remember it's best to use full sentences.",
-    because WEA does not log what the actual answer was for these.
-
-    Optionally sample of a set of questions. The sampled question frequency will be drawn from the same distribution as
-    the original one in the logs.
-
-    :param usage_log: QuestionsData.csv report log
-    :type usage_log: pandas.DataFrame
-    :param sample_size: number of questions to sample, use all questions if None
-    :type sample_size: int
-    :return: questions in frequency then lexical order
-    :rtype: pandas.DataFrame
-    """
-    questions = question_frequency(usage_log).reset_index()
-    if sample_size is not None:
-        questions = questions.sample(n=sample_size, weights=questions[FREQUENCY])
-        questions = questions.sort_values([FREQUENCY, QUESTION], ascending=[False, True])
-    logger.info("%d unique questions" % len(questions))
-    return questions[[QUESTION]].set_index(QUESTION)
-
-
-def question_frequency(usage_log):
-    """
-    Count the number of times each question appears in the usage log.
-
-    :param usage_log: QuestionsData.csv report log
-    :type usage_log: pandas.DataFrame
-    :return: table of question and frequency
-    :rtype: pandas.DataFrame
-    """
-    questions = pandas.merge(usage_log.drop_duplicates(QUESTION),
-                             usage_log.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
-    questions = questions[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
-    return questions.set_index(QUESTION)
-
-
 class FrequencyFileType(CsvFileType):
     def __init__(self):
         super(self.__class__, self).__init__([QUESTION, FREQUENCY])

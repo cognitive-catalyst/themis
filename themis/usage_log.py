@@ -2,15 +2,64 @@ import re
 
 import pandas
 
-from themis import QUESTION, CONFIDENCE, ANSWER
+from themis import QUESTION, CONFIDENCE, ANSWER, FREQUENCY
 from themis import logger, CsvFileType
 
-# Column headers in WEA logs
+# Column headers in usage log
 QUESTION_TEXT = "QuestionText"
 TOP_ANSWER_TEXT = "TopAnswerText"
 USER_EXPERIENCE = "UserExperience"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 DATE_TIME = "DateTime"
+
+
+def extract_question_answer_pairs_from_usage_logs(usage_log):
+    """
+    Extract questions and answers from usage logs, adding question frequency information.
+
+    :param usage_log: QuestionsData.csv usage log
+    :type usage_log: pandas.DatFrame
+    :return: Q&A pairs with question frequency information
+    :rtype: pandas.DatFrame
+    """
+    frequency = question_frequency(usage_log)
+    # We are assuming here that a given question always elicits the same answer.
+    qa_pairs = usage_log.drop_duplicates(subset=(QUESTION, ANSWER))
+    qa_pairs = pandas.merge(qa_pairs, frequency, on=QUESTION)
+    logger.info("%d question/answer pairs, %d unique questions" % (len(qa_pairs), len(frequency)))
+    return qa_pairs
+
+
+def question_frequency(usage_log):
+    """
+    Count the number of times each question appears in the usage log.
+
+    :param usage_log: QuestionsData.csv report log
+    :type usage_log: pandas.DataFrame
+    :return: table of question and frequency
+    :rtype: pandas.DataFrame
+    """
+    questions = pandas.merge(usage_log.drop_duplicates(QUESTION),
+                             usage_log.groupby(QUESTION).size().to_frame(FREQUENCY).reset_index())
+    questions = questions[[FREQUENCY, QUESTION]].sort_values([FREQUENCY, QUESTION], ascending=[False, True])
+    return questions
+
+
+def sample_questions(qa_pairs, sample_size):
+    """
+    Sample questions by frequency.
+
+    :param qa_pairs: question/answer pairs with question frequencies
+    :type qa_pairs: pandas.DataFrame
+    :param sample_size: number of questions to sample
+    :type sample_size: int
+    :return: sample of unique questions and their frequencies
+    :rtype: pandas.DataFrame
+    """
+    qa_pairs = qa_pairs[[QUESTION, FREQUENCY]].drop_duplicates(QUESTION)
+    sample = qa_pairs.sample(sample_size, weights=FREQUENCY)
+    sample = sample.sort_values([FREQUENCY, QUESTION], ascending=[False, True])
+    return sample.set_index(QUESTION)
 
 
 def get_answers_from_usage_log(questions, usage_log):
@@ -65,13 +114,12 @@ class UsageLogFileType(CsvFileType):
     def __init__(self):
         super(self.__class__, self).__init__(
             [DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
-            {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER,
-             TOP_ANSWER_CONFIDENCE: CONFIDENCE})
+            {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER, TOP_ANSWER_CONFIDENCE: CONFIDENCE})
 
     def __call__(self, filename):
-        wea_logs = super(self.__class__, self).__call__(filename)
-        wea_logs[DATE_TIME] = pandas.to_datetime(wea_logs[DATE_TIME].apply(self.standard_date_format))
-        return wea_logs
+        usage_log = super(self.__class__, self).__call__(filename)
+        usage_log[DATE_TIME] = pandas.to_datetime(usage_log[DATE_TIME].apply(self.standard_date_format))
+        return usage_log
 
     @staticmethod
     def standard_date_format(s):
@@ -85,3 +133,16 @@ class UsageLogFileType(CsvFileType):
         """
         m = UsageLogFileType.WEA_DATE_FORMAT.match(s).groupdict()
         return "%s-%s-%sT%s:%s:%sZ" % (m['year'], m['month'], m['day'], m['hour'], m['min'], m['sec'])
+
+
+class QAPairFileType(CsvFileType):
+    columns = [QUESTION, ANSWER, CONFIDENCE, USER_EXPERIENCE, FREQUENCY, DATE_TIME]
+
+    def __init__(self):
+        super(self.__class__, self).__init__(QAPairFileType.columns)
+
+    @staticmethod
+    def output_format(qa_pairs):
+        qa_pairs = qa_pairs[QAPairFileType.columns]
+        qa_pairs = qa_pairs.sort_values([FREQUENCY, CONFIDENCE, QUESTION], ascending=(False, False, True))
+        return qa_pairs.set_index([QUESTION, ANSWER])
