@@ -17,16 +17,24 @@ def extract_question_answer_pairs_from_usage_logs(usage_log):
     """
     Extract questions and answers from usage logs, adding question frequency information.
 
+    We are assuming here that a given question always elicits the same answer. Print a warning if this is not the case
+    and drop answers to make the answers unique. It is arbitrary which answer is dropped.
+
     :param usage_log: QuestionsData.csv usage log
     :type usage_log: pandas.DatFrame
     :return: Q&A pairs with question frequency information
     :rtype: pandas.DatFrame
     """
     frequency = question_frequency(usage_log)
-    # We are assuming here that a given question always elicits the same answer.
     qa_pairs = usage_log.drop_duplicates(subset=(QUESTION, ANSWER))
+    m = sum(qa_pairs.duplicated(QUESTION))
+    if m:
+        n = len(frequency)
+        logger.warning("%d questions of %d have multiple answers (%0.3f%%), only keeping one answer per question" %
+                       (n, m, 100.0 * m / n))
+        qa_pairs = qa_pairs.drop_duplicates(QUESTION)
     qa_pairs = pandas.merge(qa_pairs, frequency, on=QUESTION)
-    logger.info("%d question/answer pairs, %d unique questions" % (len(qa_pairs), len(frequency)))
+    logger.info("%d question/answer pairs" % len(qa_pairs))
     return qa_pairs
 
 
@@ -62,19 +70,20 @@ def sample_questions(qa_pairs, sample_size):
     return sample.set_index(QUESTION)
 
 
-def get_answers_from_usage_log(questions, usage_log):
+def get_answers_from_usage_log(questions, qa_pairs_from_logs):
     """
     Get answers returned by WEA to questions by looking them up in the usage log.
 
+    Each question in the Q&A pairs must have a unique answer.
+
     :param questions: questions to look up in the usage logs
     :type questions: pandas.DataFrame
-    :param usage_log: user interaction logs from QuestionsData.csv XMGR report
-    :type usage_log: pandas.DataFrame
+    :param qa_pairs_from_logs: question/answer pairs extracted from user logs
+    :type qa_pairs_from_logs: pandas.DataFrame
     :return: Question, Answer, and Confidence
     :rtype: pandas.DataFrame
     """
-    usage_log = usage_log.drop_duplicates(QUESTION)
-    answers = pandas.merge(questions, usage_log, on=QUESTION)
+    answers = pandas.merge(questions, qa_pairs_from_logs, on=QUESTION, how="left")
     missing_answers = answers[answers[ANSWER].isnull()]
     if len(missing_answers):
         logger.warning("%d questions without answers" % len(missing_answers))

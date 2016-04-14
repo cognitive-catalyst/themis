@@ -6,26 +6,25 @@ from themis import logger, DataFrameCheckpoint, percent_complete_message
 from themis import QUESTION, ANSWER, CONFIDENCE
 
 
-def answer_questions(system, test_set, output_filename, checkpoint_frequency):
+def answer_questions(system, questions, output_filename, checkpoint_frequency):
     """
     Use a Q&A system to provide answers to a test set of questions
 
     :param system: Q&A system
     :type system: object that exports an ask method
-    :param test_set: set of questions to ask
-    :type test_set: pandas.DataFrame
+    :param questions: questions to ask
+    :type questions: set
     :param output_filename: name of file to which write questions, answers, and confidences
     :type output_filename: str
     :param checkpoint_frequency: how often to write intermediary results to the output file
     :type checkpoint_frequency: int
     """
-    questions = test_set[QUESTION]
     logger.info("Get answers to %d questions from %s" % (len(questions), system))
     answers = DataFrameCheckpoint(output_filename, [QUESTION, ANSWER, CONFIDENCE], checkpoint_frequency)
     try:
         if answers.recovered:
             logger.info("Recovered %d answers from %s" % (len(answers.recovered), output_filename))
-        questions = sorted(set(questions) - answers.recovered)
+        questions = sorted(questions - answers.recovered)
         n = len(answers.recovered) + len(questions)
         for i, question in enumerate(questions, len(answers.recovered) + 1):
             if i is 1 or i == n or i % checkpoint_frequency is 0:
