@@ -1,22 +1,3 @@
-"""
-The xmgr command extracts information from the XMGR instance and the usage log.
-
-corpus
-    Download corpus from XMGR.
-
-truth
-    Download truth from XMGR.
-
-questions
-    Extract question set form usage log.
-
-filter
-    Filter oversized answer documents out of the corpus.
-
-frequency
-    List questions by the frequency with which they appear in the usage log.
-"""
-
 import argparse
 
 from themis import retry, print_csv

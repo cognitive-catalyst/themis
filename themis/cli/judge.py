@@ -1,7 +1,7 @@
 """
 Judge answers using Annotate Assist
 
-qa
+pairs
     Generate question and answer pairs for Annotation Assist to judge. This takes question list filter, system answers,
     optional previous annotations.
 
