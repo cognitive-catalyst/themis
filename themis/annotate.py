@@ -92,7 +92,7 @@ def interpret_annotation_assist(annotation_assist, judgment_threshold):
     annotation_assist[IN_PURVIEW] = annotation_assist[IN_PURVIEW].astype("bool")
     annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgment_threshold
     logger.info("Processed %d judgments" % len(annotation_assist))
-    return annotation_assist.drop(ANNOTATION_SCORE, axis="columns").set_index([QUESTION, ANSWER])
+    return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")
 
 
 def strip_newlines_from_answer_text(qa_pairs):
@@ -127,3 +127,8 @@ class JudgmentFileType(CsvFileType):
 
     def __init__(self):
         super(self.__class__, self).__init__([QUESTION, ANSWER, IN_PURVIEW, CORRECT])
+
+    @staticmethod
+    def output_format(judgments):
+        judgments = judgments.sort_values([QUESTION, ANSWER])
+        return judgments.set_index([QUESTION, ANSWER])

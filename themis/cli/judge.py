@@ -12,8 +12,8 @@ interpret
     Apply judgement threshold to file retrieved from Annotation Assist.
 """
 from themis import CsvFileType, QUESTION, print_csv
-from themis.annotate import AnnotationAssistFileType, create_annotation_assist_corpus, annotation_assist_qa_input, \
-    interpret_annotation_assist
+from themis.annotate import AnnotationAssistFileType, JudgmentFileType
+from themis.annotate import create_annotation_assist_corpus, annotation_assist_qa_input, interpret_annotation_assist
 from themis.xmgr import CorpusFileType
 
 
@@ -55,4 +55,4 @@ def corpus_handler(args):
 
 def interpret_handler(args):
     judgments = interpret_annotation_assist(args.judgments, args.judgment_threshold)
-    print_csv(judgments)
+    print_csv(JudgmentFileType.output_format(judgments))
