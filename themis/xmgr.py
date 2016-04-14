@@ -5,7 +5,7 @@ import os
 import pandas
 import requests
 
-from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, FREQUENCY
+from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID
 from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, from_csv, percent_complete_message, \
     CsvFileType
 
@@ -166,11 +166,6 @@ def verify_answer_ids(output_directory):
         truth = truth[~truth[ANSWER_ID].isin(d)]
         os.remove(truth_csv)
         to_csv(truth_csv, truth)
-
-
-class FrequencyFileType(CsvFileType):
-    def __init__(self):
-        super(self.__class__, self).__init__([QUESTION, FREQUENCY])
 
 
 class DownloadCorpusFromXmgrClosure(object):
