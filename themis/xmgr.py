@@ -93,6 +93,7 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     logger.info("Get corpus from %s" % xmgr)
     # Get the documents from XMGR
     document_ids = set(document["id"] for document in xmgr.get_documents())
+    total = len(document_ids)
     if max_docs is not None:
         document_ids = set(list(document_ids)[:max_docs])
     # Get the list of all PAUs referenced by the documents, periodically saving intermediate results.
@@ -107,13 +108,14 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
             logger.info("Get PAU ids from %d documents" % n)
             for i, document_id in enumerate(document_ids, start):
                 if i % checkpoint_frequency == 0 or i == start or i == n:
-                    logger.info(percent_complete_message("Get PAU ids from document", i, n))
+                    logger.info(percent_complete_message("Get PAU ids from document", i, total))
                 pau_ids = xmgr.get_pau_ids_from_document(document_id)
                 pau_ids_checkpoint.write(document_id, serialize_pau_ids(pau_ids))
     finally:
         pau_ids_checkpoint.close()
     pau_ids_checkpoint = pandas.read_csv(pau_ids_csv, encoding="utf-8")
     pau_ids = reduce(lambda m, s: m | deserialize_pau_ids(s), pau_ids_checkpoint["Answer IDs"], set())
+    total = len(pau_ids)
     logger.info("%d PAUs total" % len(pau_ids))
     # Download the PAUs, periodically saving intermediate results.
     corpus_csv_checkpoint = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER, TITLE, FILENAME], checkpoint_frequency)
@@ -126,7 +128,7 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
         start = len(corpus_csv_checkpoint.recovered) + 1
         for i, pau_id in enumerate(pau_ids, start):
             if i % checkpoint_frequency == 0 or i == start or i == n:
-                logger.info(percent_complete_message("Get PAU", i, n))
+                logger.info(percent_complete_message("Get PAU", i, total))
             pau = xmgr.get_pau(pau_id)
             if pau is not None:
                 answer_text = pau["responseMarkup"]
