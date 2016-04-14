@@ -88,7 +88,7 @@ See the help for more details.
 
 After the model has been trained, you can submit questions to it.
 
-    themis nlc use NLC-URL USERNAME PASSWORD MODEL-ID qa-pairs.csv answers.nlc.csv MODEL-ID corpus.csv
+    themis answer nlc use NLC-URL USERNAME PASSWORD qa-pairs.csv answers.nlc.csv MODEL-ID corpus.csv
 
 If the command to ask questions to either Solr or NLC fails you can rerun it and it will pick up where it left off.
 
