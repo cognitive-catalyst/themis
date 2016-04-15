@@ -224,7 +224,17 @@ class XmgrProject(object):
         url = os.path.join(self.project_url, path)
         r = requests.get(url, auth=(self.username, self.password), params=params, headers=headers)
         logger.debug("GET %s, Status %d" % (url, r.status_code))
-        return r.json()
+        r.raise_for_status()
+        try:
+            return r.json()
+        except ValueError as e:
+            # When it handles an invalid URL, XMGR returns HTTP status 200 with text on a web page describing the
+            # error. This web text cannot be parsed as JSON, causing a confusing ValueError to be thrown. Catch this
+            # case and raise a more sensible exception.
+            if r.status_code == 200 and "The page you were looking for could not be found." in r.text:
+                raise ValueError("Invalid URL %s" % url)
+            else:
+                raise e
 
 
 class CorpusFileType(CsvFileType):
