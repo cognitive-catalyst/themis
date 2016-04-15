@@ -49,7 +49,12 @@ def get_truth_from_mapped_questions(mapped_questions):
         if "predefinedAnswerUnit" in question:
             return question["predefinedAnswerUnit"]
         elif "mappedQuestion" in question:
-            mapped_question = questions[question["mappedQuestion"]["id"]]
+            question_id = question["mappedQuestion"]["id"]
+            try:
+                mapped_question = questions[question_id]
+            except KeyError:
+                logger.warning("Question %s mapped to non-existent question %s" % (question["id"], question_id))
+                return None
             return get_pau_mapping(mapped_question)
         else:
             return None
