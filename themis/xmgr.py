@@ -31,10 +31,15 @@ def download_truth_from_xmgr(xmgr, output_directory):
     if os.path.isfile(truth_json) and os.path.isfile(truth_csv):
         logger.info("Truth already downloaded")
         return
-    # Get all the questions that are not in a REJECTED state.
-    mapped_questions = [question for question in xmgr.get_questions() if not question["state"] == "REJECTED"]
-    with open(truth_json, "w") as f:
-        json.dump(mapped_questions, f, indent=2)
+    if not os.path.isfile(truth_json):
+        logger.info("Get questions from %s" % xmgr)
+        mapped_questions = [question for question in xmgr.get_questions() if not question["state"] == "REJECTED"]
+        with open(truth_json, "w") as f:
+            json.dump(mapped_questions, f, indent=2)
+    else:
+        with open(truth_json) as f:
+            mapped_questions = json.load(f)
+    logger.info("Build truth from questions")
     truth = get_truth_from_mapped_questions(mapped_questions)
     to_csv(truth_csv, TruthFileType.output_format(truth))
 
