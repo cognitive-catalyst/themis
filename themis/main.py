@@ -19,7 +19,7 @@ from themis.test import answer_questions, Solr
 from themis.usage_log import QAPairFileType, get_answers_from_usage_log, UsageLogFileType, \
     extract_question_answer_pairs_from_usage_logs, sample_questions
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    verify_answer_ids
+    verify_answer_ids, TruthFileType
 
 
 def main():
@@ -79,7 +79,7 @@ def xmgr_command(subparsers):
                                         help="ensure that all truth answer Ids are in the corpus")
     xmgr_verify.add_argument("corpus", type=CorpusFileType(),
                              help="corpus file created by the 'download corpus' command")
-    xmgr_verify.add_argument("truth", type=CsvFileType(), help="truth file created by the 'xmgr truth' command")
+    xmgr_verify.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
     xmgr_verify.set_defaults(func=verify_handler)
 
 
@@ -204,7 +204,7 @@ def answer_command(subparsers):
                                                description="train, use, and manage NLC models", help="NLC actions")
     # Train NLC model.
     nlc_train = nlc_subparsers.add_parser("train", parents=[nlc_shared_arguments], help="train an NLC model")
-    nlc_train.add_argument("truth", type=CsvFileType(), help="truth file created by the 'xmgr truth' command")
+    nlc_train.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
     nlc_train.add_argument("name", help="classifier name")
     nlc_train.set_defaults(func=nlc_train_handler)
     # Use an NLC model.

@@ -36,7 +36,7 @@ def download_truth_from_xmgr(xmgr, output_directory):
     with open(truth_json, "w") as f:
         json.dump(mapped_questions, f, indent=2)
     truth = get_truth_from_mapped_questions(mapped_questions)
-    to_csv(truth_csv, truth)
+    to_csv(truth_csv, TruthFileType.output_format(truth))
 
 
 def get_truth_from_mapped_questions(mapped_questions):
@@ -61,7 +61,6 @@ def get_truth_from_mapped_questions(mapped_questions):
     question_text = [q["text"] for q in questions]
     answer_id = [q[ANSWER_ID] for q in questions]
     truth = pandas.DataFrame.from_dict({QUESTION_ID: question_ids, QUESTION: question_text, ANSWER_ID: answer_id})
-    truth = truth[[QUESTION_ID, QUESTION, ANSWER_ID]].set_index(QUESTION_ID)
     logger.info("%d mapped, %d unmapped" % (len(truth), unmapped))
     return truth
 
@@ -252,3 +251,14 @@ class XmgrProject(object):
 class CorpusFileType(CsvFileType):
     def __init__(self):
         super(self.__class__, self).__init__([ANSWER_ID, ANSWER, TITLE, FILENAME])
+
+
+class TruthFileType(CsvFileType):
+    def __init__(self):
+        super(self.__class__, self).__init__([QUESTION_ID, QUESTION, ANSWER_ID])
+
+    @staticmethod
+    def output_format(truth):
+        truth = truth.sort_values(QUESTION_ID)
+        truth = truth[[QUESTION_ID, QUESTION, ANSWER_ID]].set_index(QUESTION_ID)
+        return truth
