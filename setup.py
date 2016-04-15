@@ -5,7 +5,7 @@ setup(
     version='2.0.0',
     packages=['themis'],
     entry_points={
-        'console_scripts': ['themis=themis.cli:run'],
+        'console_scripts': ['themis=themis.main:main'],
     },
     url='https://github.ibm.com/WatsonTooling/data-science',
     license='',
