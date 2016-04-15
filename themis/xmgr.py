@@ -6,7 +6,7 @@ import pandas
 import requests
 
 from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID
-from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, from_csv, percent_complete_message, \
+from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, percent_complete_message, \
     CsvFileType
 
 
@@ -141,7 +141,6 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
         corpus_csv_checkpoint.close()
     logger.info("%d PAU ids, %d with PAUs (%0.4f)" % (n, m, m / float(n)))
     os.remove(pau_ids_csv)
-    verify_answer_ids(output_directory)
 
 
 def serialize_pau_ids(pau_ids):
@@ -152,22 +151,35 @@ def deserialize_pau_ids(s):
     return set(s.split(","))
 
 
-def verify_answer_ids(output_directory):
-    truth_csv = os.path.join(output_directory, "truth.csv")
-    truth = from_csv(truth_csv)
+def verify_answer_ids(corpus, truth, output_directory):
+    """
+    Verify that all the answer IDs in the truth appear in the corpus.
+
+    If they are all present in the corpus, this does nothing. If any are missing, it creates two new files:
+    truth.in-corpus.csv and truth.not-in-corpus.csv.
+
+    :param corpus: corpus downloaded from xmgr
+    :type corpus: pandas.DataFrame
+    :param truth:  truth downloaded from xmgr
+    :type truth: pandas.DataFrame
+    :param output_directory:
+    :type output_directory:
+    """
     truth_ids = set(truth[ANSWER_ID])
-    corpus_ids = set(from_csv(os.path.join(output_directory, "corpus.csv"))[ANSWER_ID])
+    corpus_ids = set(corpus[ANSWER_ID])
     d = truth_ids - corpus_ids
     if d:
-        logger.warn("%d truth answer ids of %d not in corpus (%0.3f)" %
-                    (len(d), len(truth_ids), len(d) / float(len(truth_ids))))
+        print("%d truth answer ids of %d not in corpus (%0.3f)" %
+              (len(d), len(truth_ids), len(d) / float(len(truth_ids))))
         non_corpus = truth[truth[ANSWER_ID].isin(d)]
-        truth_non_corpus_csv = os.path.join(output_directory, "truth.non_corpus.csv")
-        logger.warn("%d omitted truth mappings (saved to %s)" % (len(non_corpus), truth_non_corpus_csv))
-        to_csv(truth_non_corpus_csv, non_corpus)
+        truth_not_in_corpus_csv = os.path.join(output_directory, "truth.not-in-corpus.csv")
+        to_csv(truth_not_in_corpus_csv, non_corpus)
+        truth_in_corpus_csv = os.path.join(output_directory, "truth.in-corpus.csv")
         truth = truth[~truth[ANSWER_ID].isin(d)]
-        os.remove(truth_csv)
-        to_csv(truth_csv, truth)
+        to_csv(truth_in_corpus_csv, truth)
+        print("Split truth into %s and %s." % (truth_in_corpus_csv, truth_not_in_corpus_csv))
+    else:
+        print("All truth answer ids are in the corpus.")
 
 
 class DownloadCorpusFromXmgrClosure(object):
