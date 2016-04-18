@@ -140,3 +140,7 @@ This will create `WEA.precision.csv`, `Solr.precision.csv`, and `NLC.precision.c
 and X and Y scatter plot values.
 ROC curves can be generated with the `roc` option in the place of `precision`. 
 If you specify the `--draw` option, the curves will be drawn.
+
+## License
+
+See [License.txt](License.txt).
