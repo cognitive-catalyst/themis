@@ -234,7 +234,7 @@ class XmgrProject(object):
         return set(pau_ids)
 
     def get_pau(self, pau_id):
-        hits = self.get(os.path.join("wcea/api/GroundTruth/paus", pau_id))["hits"]
+        hits = self.get(self.urljoin("wcea/api/GroundTruth/paus", pau_id))["hits"]
         if hits:
             pau = hits[0]
         else:
@@ -242,7 +242,7 @@ class XmgrProject(object):
         return pau
 
     def get(self, path, params=None, headers=None):
-        url = os.path.join(self.project_url, path)
+        url = self.urljoin(self.project_url, path)
         r = requests.get(url, auth=(self.username, self.password), params=params, headers=headers)
         logger.debug("GET %s, Status %d" % (url, r.status_code))
         r.raise_for_status()
@@ -256,6 +256,11 @@ class XmgrProject(object):
                 raise ValueError("Invalid URL %s" % url)
             else:
                 raise e
+
+    # Use this because urlparse.urljoin discards path components that contain a "$", which XMGR project paths do.
+    @staticmethod
+    def urljoin(a, b):
+        return "%s/%s" % (a.rstrip("/"), b.lstrip("/"))
 
 
 class CorpusFileType(CsvFileType):
