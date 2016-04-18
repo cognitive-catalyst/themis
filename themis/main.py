@@ -108,7 +108,7 @@ def question_command(subparsers):
     subparsers = question_parser.add_subparsers(description="get questions to ask a Q&A system")
     # Extract questions from usage logs.
     question_extract = subparsers.add_parser("extract", help="extract question/answer pairs from usage logs")
-    question_extract.add_argument("usage_log", metavar="usage-log", type=UsageLogFileType(),
+    question_extract.add_argument("usage_log", metavar="usage-log", nargs="+", type=UsageLogFileType(),
                                   help="QuestionsData.csv usage log file from XMGR")
     question_extract.add_argument("--before", metavar="DATE", type=pandas.to_datetime,
                                   help="keep interactions before the specified date")
@@ -127,9 +127,10 @@ def question_command(subparsers):
     question_sample.set_defaults(func=sample_handler)
 
 
+# noinspection PyTypeChecker
 def extract_handler(args):
     # Do custom fixup of usage logs.
-    usage_log = args.usage_log
+    usage_log = pandas.concat(args.usage_log)
     n = len(usage_log)
     if args.before or args.after:
         usage_log = filter_usage_log_by_date(usage_log, args.before, args.after)
