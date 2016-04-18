@@ -9,7 +9,7 @@ and the [Natural Language Classifier (NLC)](http://www.ibm.com/smarterplanet/us/
 
 You can install directly from github using the following command
 
-    pip install git+https://github.ibm.com/watson-prototypes/themis.git
+    pip install git+https://github.com/cognitive-catalyst/themis.git
 
 You can also install from source by running
 
