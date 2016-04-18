@@ -31,7 +31,7 @@ def extract_question_answer_pairs_from_usage_logs(usage_log):
     if m:
         n = len(frequency)
         logger.warning("%d questions of %d have multiple answers (%0.3f%%), only keeping one answer per question" %
-                       (n, m, 100.0 * m / n))
+                       (m, n, 100.0 * m / n))
         qa_pairs = qa_pairs.drop_duplicates(QUESTION)
     qa_pairs = pandas.merge(qa_pairs, frequency, on=QUESTION)
     logger.info("%d question/answer pairs" % len(qa_pairs))
