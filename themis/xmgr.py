@@ -178,7 +178,7 @@ def verify_answer_ids(corpus, truth, output_directory):
     corpus_ids = set(corpus[ANSWER_ID])
     d = truth_ids - corpus_ids
     if d:
-        print("%d truth answer ids of %d not in corpus (%0.3f)" %
+        print("%d truth answer ids of %d not in corpus (%0.3f%%)" %
               (len(d), len(truth_ids), len(d) / float(len(truth_ids))))
         non_corpus = truth[truth[ANSWER_ID].isin(d)]
         truth_not_in_corpus_csv = os.path.join(output_directory, "truth.not-in-corpus.csv")
