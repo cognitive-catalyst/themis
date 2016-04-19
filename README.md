@@ -44,6 +44,9 @@ To download the truth file, run the following command.
 
 This creates `truth.json` and `truth.csv` files.
 The json file is a verbose archive of truth information, while the csv file is used in subsequent Themis commands.
+Subsequent actions assume that the answer Ids referenced in the truth are all present in the corpus.
+Sometimes this is not the case.
+See `themis xmgr verify` for how to rectify this.
 
 
 ### Get Test Set from Usage Logs
