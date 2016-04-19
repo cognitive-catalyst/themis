@@ -4,13 +4,14 @@ import pandas
 
 from themis import ANSWER, ANSWER_ID, TITLE, FILENAME, QUESTION, CONFIDENCE, IN_PURVIEW, CORRECT
 from themis import logger, CsvFileType, pretty_print_json
+from themis.question import QUESTION_TEXT, TOP_ANSWER_TEXT
 
 QUESTION_TEXT_INPUT = "QuestionText"  # Column header for input file required by Annotation Assist
 QUESTION_TEXT_OUTPUT = "Question_Text"  # Columns header for output file created by Annotation Assist
 IS_IN_PURVIEW = "Is_In_Purview"
 SYSTEM_ANSWER = "System_Answer"
 ANNOTATION_SCORE = "Annotation_Score"
-TOP_ANSWER_TEXT = "TopAnswerText"
+TOP_ANSWER_TEXT_ANNOTATION_ASSIST = "TopAnswerText"
 TOP_ANSWER_CONFIDENCE = "TopAnswerConfidence"
 ANS_LONG = "ANS_LONG"
 ANS_SHORT = "ANS_SHORT"
@@ -50,8 +51,9 @@ def annotation_assist_qa_input(answers, questions, judgments):
     else:
         not_judged = qa_pairs
     not_judged = not_judged.rename(
-        columns={QUESTION: QUESTION_TEXT_INPUT, ANSWER: TOP_ANSWER_TEXT, CONFIDENCE: TOP_ANSWER_CONFIDENCE})
-    not_judged = not_judged[[QUESTION_TEXT_INPUT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE]]
+        columns={QUESTION: QUESTION_TEXT_INPUT, ANSWER: TOP_ANSWER_TEXT_ANNOTATION_ASSIST,
+                 CONFIDENCE: TOP_ANSWER_CONFIDENCE})
+    not_judged = not_judged[[QUESTION_TEXT_INPUT, TOP_ANSWER_TEXT_ANNOTATION_ASSIST, TOP_ANSWER_CONFIDENCE]]
     return not_judged
 
 
@@ -132,3 +134,23 @@ class JudgmentFileType(CsvFileType):
     def output_format(judgments):
         judgments = judgments.sort_values([QUESTION, ANSWER])
         return judgments.set_index([QUESTION, ANSWER])
+
+
+def augment_usage_log(usage_log, annotation_assist):
+    """
+    Add In Purview and Annotation Score information to system usage log.
+
+    :param usage_log: user interaction logs from QuestionsData.csv XMGR report
+    :type usage_log: pandas.DataFrame
+    :param annotation_assist: Annotation Assist judgments
+    :type annotation_assist: pandas.DataFrame
+    :return: user interaction logs with additional columns
+    :rtype: pandas.DataFrame
+    """
+    usage_log[ANSWER] = usage_log[ANSWER].str.replace("\n", "")
+    augmented = pandas.merge(usage_log, annotation_assist, on=(QUESTION, ANSWER), how="left")
+    n = len(usage_log[[QUESTION, ANSWER]].drop_duplicates())
+    if n:
+        m = len(annotation_assist)
+        logger.info("%d unique question/answer pairs, %d judgments (%0.3f%%)" % (n, m, 100.0 * m / n))
+    return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})

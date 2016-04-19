@@ -10,14 +10,14 @@ import pandas
 
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     retry
-from themis.annotate import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
-    interpret_annotation_assist, JudgmentFileType
-from themis.curves import generate_curves, plot_curves
+from themis.answer import answer_questions, Solr, get_answers_from_usage_log
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
+from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
+    interpret_annotation_assist, JudgmentFileType
 from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
-from themis.test import answer_questions, Solr
-from themis.usage_log import QAPairFileType, get_answers_from_usage_log, UsageLogFileType, \
-    extract_question_answer_pairs_from_usage_logs, sample_questions
+from themis.plot import generate_curves, plot_curves
+from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
+    sample_questions
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
     verify_answer_ids, TruthFileType
 

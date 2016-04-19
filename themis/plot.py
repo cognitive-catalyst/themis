@@ -3,7 +3,7 @@ import numpy
 import pandas
 
 from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, QUESTION, ANSWER
-from themis.annotate import strip_newlines_from_answer_text
+from themis.judge import strip_newlines_from_answer_text
 
 THRESHOLD = "Threshold"
 TRUE_POSITIVE_RATE = "True Positive Rate"

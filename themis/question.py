@@ -70,48 +70,6 @@ def sample_questions(qa_pairs, sample_size):
     return sample.set_index(QUESTION)
 
 
-def get_answers_from_usage_log(questions, qa_pairs_from_logs):
-    """
-    Get answers returned by WEA to questions by looking them up in the usage log.
-
-    Each question in the Q&A pairs must have a unique answer.
-
-    :param questions: questions to look up in the usage logs
-    :type questions: pandas.DataFrame
-    :param qa_pairs_from_logs: question/answer pairs extracted from user logs
-    :type qa_pairs_from_logs: pandas.DataFrame
-    :return: Question, Answer, and Confidence
-    :rtype: pandas.DataFrame
-    """
-    answers = pandas.merge(questions, qa_pairs_from_logs, on=QUESTION, how="left")
-    missing_answers = answers[answers[ANSWER].isnull()]
-    if len(missing_answers):
-        logger.warning("%d questions without answers" % len(missing_answers))
-    logger.info("Answered %d questions" % len(answers))
-    answers = answers[[QUESTION, ANSWER, CONFIDENCE]].sort_values([QUESTION, CONFIDENCE], ascending=[True, False])
-    return answers.set_index(QUESTION)
-
-
-def augment_usage_log(usage_log, annotation_assist):
-    """
-    Add In Purview and Annotation Score information to system usage log.
-
-    :param usage_log: user interaction logs from QuestionsData.csv XMGR report
-    :type usage_log: pandas.DataFrame
-    :param annotation_assist: Annotation Assist judgments
-    :type annotation_assist: pandas.DataFrame
-    :return: user interaction logs with additional columns
-    :rtype: pandas.DataFrame
-    """
-    usage_log[ANSWER] = usage_log[ANSWER].str.replace("\n", "")
-    augmented = pandas.merge(usage_log, annotation_assist, on=(QUESTION, ANSWER), how="left")
-    n = len(usage_log[[QUESTION, ANSWER]].drop_duplicates())
-    if n:
-        m = len(annotation_assist)
-        logger.info("%d unique question/answer pairs, %d judgments (%0.3f%%)" % (n, m, 100.0 * m / n))
-    return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})
-
-
 class UsageLogFileType(CsvFileType):
     """
     Read the QuestionsData.csv file in the usage log.

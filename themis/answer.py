@@ -1,5 +1,6 @@
 import re
 
+import pandas
 # noinspection PyPackageRequirements
 import solr
 from themis import logger, DataFrameCheckpoint, percent_complete_message
@@ -34,6 +35,28 @@ def answer_questions(system, questions, output_filename, checkpoint_frequency):
             answers.write(question, answer, confidence)
     finally:
         answers.close()
+
+
+def get_answers_from_usage_log(questions, qa_pairs_from_logs):
+    """
+    Get answers returned by WEA to questions by looking them up in the usage log.
+
+    Each question in the Q&A pairs must have a unique answer.
+
+    :param questions: questions to look up in the usage logs
+    :type questions: pandas.DataFrame
+    :param qa_pairs_from_logs: question/answer pairs extracted from user logs
+    :type qa_pairs_from_logs: pandas.DataFrame
+    :return: Question, Answer, and Confidence
+    :rtype: pandas.DataFrame
+    """
+    answers = pandas.merge(questions, qa_pairs_from_logs, on=QUESTION, how="left")
+    missing_answers = answers[answers[ANSWER].isnull()]
+    if len(missing_answers):
+        logger.warning("%d questions without answers" % len(missing_answers))
+    logger.info("Answered %d questions" % len(answers))
+    answers = answers[[QUESTION, ANSWER, CONFIDENCE]].sort_values([QUESTION, CONFIDENCE], ascending=[True, False])
+    return answers.set_index(QUESTION)
 
 
 class Solr(object):
