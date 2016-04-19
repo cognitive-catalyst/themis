@@ -5,7 +5,7 @@ import os
 import pandas
 import requests
 
-from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID
+from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID
 from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, percent_complete_message, \
     CsvFileType
 
@@ -94,70 +94,39 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     :param max_docs: maximum number of corpus documents to download, if None, download them all
     :type max_docs: int
     """
-    pau_ids_csv = os.path.join(output_directory, "pau_ids.csv")
+    document_ids_csv = os.path.join(output_directory, "document_ids.csv")
     corpus_csv = os.path.join(output_directory, "corpus.csv")
-    if not os.path.isfile(pau_ids_csv) and os.path.isfile(corpus_csv):
+    if os.path.isfile(corpus_csv) and not os.path.isfile(document_ids_csv):
         logger.info("Corpus already downloaded")
         return
-    logger.info("Get corpus from %s" % xmgr)
-    # Get the documents from XMGR
-    document_ids = set(document["id"] for document in xmgr.get_documents())
-    total = len(document_ids)
-    if max_docs is not None:
-        document_ids = set(list(document_ids)[:max_docs])
-    # Get the list of all PAUs referenced by the documents, periodically saving intermediate results.
-    pau_ids_checkpoint = DataFrameCheckpoint(pau_ids_csv, ["Document Id", "Answer IDs"], checkpoint_frequency)
+    document_ids = sorted(set(document["id"] for document in xmgr.get_documents()))
+    document_ids = document_ids[:max_docs]
+    n = len(document_ids)
+    downloaded_document_ids = DataFrameCheckpoint(document_ids_csv, ["Document Id"], checkpoint_frequency)
+    corpus = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID])
     try:
-        document_ids -= pau_ids_checkpoint.recovered
-        if pau_ids_checkpoint.recovered:
-            logger.info("Recovered %d document ids from previous run" % len(pau_ids_checkpoint.recovered))
-        n = len(document_ids)
-        start = len(pau_ids_checkpoint.recovered) + 1
-        if n:
-            logger.info("Get PAU ids from %d documents" % n)
+        if downloaded_document_ids.recovered:
+            logger.info("Recovered PAUs from %d documents from previous run" % len(downloaded_document_ids.recovered))
+        document_ids = sorted(set(document_ids) - downloaded_document_ids.recovered)
+        m = len(document_ids)
+        start = len(downloaded_document_ids.recovered) + 1
+        if m:
             for i, document_id in enumerate(document_ids, start):
-                if i % checkpoint_frequency == 0 or i == start or i == n:
-                    logger.info(percent_complete_message("Get PAU ids from document", i, total))
-                pau_ids = xmgr.get_pau_ids_from_document(document_id)
-                pau_ids_checkpoint.write(document_id, serialize_pau_ids(pau_ids))
+                if i % checkpoint_frequency == 0 or i == start or i == m:
+                    corpus.flush()
+                    logger.info(percent_complete_message("Get PAUs from document", i, n))
+                paus = xmgr.get_paus_from_document(document_id)
+                for pau in paus:
+                    corpus.write(pau["id"], pau["responseMarkup"], pau["title"], pau["sourceName"], document_id)
+                downloaded_document_ids.write(str(document_id))
     finally:
-        pau_ids_checkpoint.close()
-    pau_ids_checkpoint = pandas.read_csv(pau_ids_csv, encoding="utf-8")
-    pau_ids = reduce(lambda m, s: m | deserialize_pau_ids(s), pau_ids_checkpoint["Answer IDs"], set())
-    total = len(pau_ids)
-    logger.info("%d PAUs total" % len(pau_ids))
-    # Download the PAUs, periodically saving intermediate results.
-    corpus_csv_checkpoint = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER, TITLE, FILENAME], checkpoint_frequency)
-    try:
-        if corpus_csv_checkpoint.recovered:
-            logger.info("Recovered %d PAUs from previous run" % len(corpus_csv_checkpoint.recovered))
-        pau_ids -= corpus_csv_checkpoint.recovered
-        n = len(pau_ids)
-        m = 0
-        start = len(corpus_csv_checkpoint.recovered) + 1
-        for i, pau_id in enumerate(pau_ids, start):
-            if i % checkpoint_frequency == 0 or i == start or i == n:
-                logger.info(percent_complete_message("Get PAU", i, total))
-            pau = xmgr.get_pau(pau_id)
-            if pau is not None:
-                answer_text = pau["responseMarkup"]
-                title = pau["title"]
-                filename = pau["sourceName"]
-                # Note: the "id" field of a PAU is not equal to the "PAU id" you use to look it up from the REST API.
-                corpus_csv_checkpoint.write(pau["id"], answer_text, title, filename)
-                m += 1
-    finally:
-        corpus_csv_checkpoint.close()
-    logger.info("%d PAU ids, %d with PAUs (%0.4f)" % (n, m, m / float(n)))
-    os.remove(pau_ids_csv)
-
-
-def serialize_pau_ids(pau_ids):
-    return ",".join(sorted(pau_ids))
-
-
-def deserialize_pau_ids(s):
-    return set(s.split(","))
+        downloaded_document_ids.close()
+        corpus.close()
+    corpus = from_csv(corpus_csv).drop_duplicates(ANSWER_ID)
+    to_csv(corpus_csv, corpus)
+    docs = len(from_csv(document_ids_csv))
+    os.remove(document_ids_csv)
+    logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
 
 
 def verify_answer_ids(corpus, truth, output_directory):
@@ -179,13 +148,13 @@ def verify_answer_ids(corpus, truth, output_directory):
     d = truth_ids - corpus_ids
     if d:
         print("%d truth answer ids of %d not in corpus (%0.3f%%)" %
-              (len(d), len(truth_ids), len(d) / float(len(truth_ids))))
+              (len(d), len(truth_ids), 100.0 * len(d) / len(truth_ids)))
         non_corpus = truth[truth[ANSWER_ID].isin(d)]
         truth_not_in_corpus_csv = os.path.join(output_directory, "truth.not-in-corpus.csv")
-        to_csv(truth_not_in_corpus_csv, non_corpus)
+        to_csv(truth_not_in_corpus_csv, TruthFileType.output_format(non_corpus))
         truth_in_corpus_csv = os.path.join(output_directory, "truth.in-corpus.csv")
         truth = truth[~truth[ANSWER_ID].isin(d)]
-        to_csv(truth_in_corpus_csv, truth)
+        to_csv(truth_in_corpus_csv, TruthFileType.output_format(truth))
         print("Split truth into %s and %s." % (truth_in_corpus_csv, truth_not_in_corpus_csv))
     else:
         print("All truth answer ids are in the corpus.")
@@ -225,26 +194,29 @@ class XmgrProject(object):
     def get_documents(self):
         return self.get("xmgr/corpus/document")
 
-    def get_pau_ids_from_document(self, document_id):
+    def get_paus_from_document(self, document_id):
+        logger.debug("Get PAUs from document %s" % document_id)
+        paus = []
+        # Get the TREC ids corresponding to the document Id.
         trec_document = self.get("xmgr/corpus/wea/trec", {"srcDocId": document_id})
-        pau_ids = [item["DOCNO"] for item in trec_document["items"]]
-        logger.debug("Document %s, %d PAUs" % (document_id, len(pau_ids)))
-        if not len(pau_ids) == len(set(pau_ids)):
-            logger.warning("Document %s contains duplicate PAUs" % document_id)
-        return set(pau_ids)
-
-    def get_pau(self, pau_id):
-        hits = self.get(self.urljoin("wcea/api/GroundTruth/paus", pau_id))["hits"]
-        if hits:
-            pau = hits[0]
-        else:
-            pau = None
-        return pau
+        trec_ids = set(item["DOCNO"] for item in trec_document["items"])
+        logger.debug("%d TREC IDs in document %s" % (len(trec_ids), document_id))
+        # Get the PAUs corresponding to the trec IDs.
+        for trec_id in trec_ids:
+            paus.extend(self.get(self.urljoin("wcea/api/GroundTruth/paus", trec_id))["hits"])
+        return paus
 
     def get(self, path, params=None, headers=None):
+        def debug_msg():
+            if params is None:
+                s = "GET %s, Status %d" % (url, r.status_code)
+            else:
+                s = "GET %s, %s, Status %d" % (url, params, r.status_code)
+            return s
+
         url = self.urljoin(self.project_url, path)
         r = requests.get(url, auth=(self.username, self.password), params=params, headers=headers)
-        logger.debug("GET %s, Status %d" % (url, r.status_code))
+        logger.debug(debug_msg())
         r.raise_for_status()
         try:
             return r.json()
@@ -265,7 +237,7 @@ class XmgrProject(object):
 
 class CorpusFileType(CsvFileType):
     def __init__(self):
-        super(self.__class__, self).__init__([ANSWER_ID, ANSWER, TITLE, FILENAME])
+        super(self.__class__, self).__init__([ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID])
 
 
 class TruthFileType(CsvFileType):

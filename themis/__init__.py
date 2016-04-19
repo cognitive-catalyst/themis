@@ -13,6 +13,7 @@ ANSWER = "Answer"
 ANSWER_ID = "Answer Id"
 TITLE = "Title"
 FILENAME = "Filename"
+DOCUMENT_ID ="Document Id"
 CONFIDENCE = "Confidence"
 FREQUENCY = "Frequency"
 CORRECT = "Correct"
@@ -76,7 +77,7 @@ class DataFrameCheckpoint(object):
         self.output_file.close()
 
     def flush(self):
-        logger.debug("Flush %d items to disk" % len(self.buffer))
+        logger.debug("Flush %d items to %s" % (len(self.buffer), self.output_file.name))
         self.buffer.to_csv(self.output_file, header=self.need_header, index=False, encoding="utf-8")
         self.output_file.flush()
         self.buffer = pandas.DataFrame(columns=self.columns)
