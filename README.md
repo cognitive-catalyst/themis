@@ -30,7 +30,7 @@ To download it, run the following command.
     themis xmgr corpus XMGR-URL USERNAME PASSWORD
 
 The `XMGR-URL` points to an XMGR project instance, e.g. `https://watson.ihost.com/instance/283/predeploy/$150dd167e4e`.
-(Note that these may contain "$" characters in that have to be escaped on the command line.)
+(Note that these may contain "$" characters that have to be escaped on the command line.)
 This will create a `corpus.csv` file.
 The command may take multiple hours to run.
 It saves intermediate state, so if it drops in the middle you can run it again and it will pick up where it left off.
