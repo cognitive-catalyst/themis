@@ -97,20 +97,6 @@ def interpret_annotation_assist(annotation_assist, judgment_threshold):
     return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")
 
 
-def strip_newlines_from_answer_text(qa_pairs):
-    """
-    The Annotation Assist tool strips newlines from answer text, so remove them from the answer text of any data frame
-    that needs to be aligned with Annotation Assist output.
-
-    :param qa_pairs: table containing answer text
-    :type qa_pairs: pandas.DataFrame
-    :return: table with newlines removed from the answer text
-    :rtype: pandas.DataFrame
-    """
-    qa_pairs[ANSWER] = qa_pairs[ANSWER].str.replace("\n", "")
-    return qa_pairs
-
-
 class AnnotationAssistFileType(CsvFileType):
     """
     Read the file produced by the `Annotation Assist <https://github.com/cognitive-catalyst/annotation-assist>` tool.
@@ -136,21 +122,36 @@ class JudgmentFileType(CsvFileType):
         return judgments.set_index([QUESTION, ANSWER])
 
 
-def augment_usage_log(usage_log, annotation_assist):
+def augment_usage_log(usage_log, judgments):
     """
     Add In Purview and Annotation Score information to system usage log.
 
     :param usage_log: user interaction logs from QuestionsData.csv XMGR report
     :type usage_log: pandas.DataFrame
-    :param annotation_assist: Annotation Assist judgments
-    :type annotation_assist: pandas.DataFrame
+    :param judgments: judgments
+    :type judgments: pandas.DataFrame
     :return: user interaction logs with additional columns
     :rtype: pandas.DataFrame
     """
-    usage_log[ANSWER] = usage_log[ANSWER].str.replace("\n", "")
-    augmented = pandas.merge(usage_log, annotation_assist, on=(QUESTION, ANSWER), how="left")
+    usage_log = usage_log.rename(columns={QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER})
+    usage_log = strip_newlines_from_answer_text(usage_log)
+    augmented = pandas.merge(usage_log, judgments, on=(QUESTION, ANSWER), how="left")
     n = len(usage_log[[QUESTION, ANSWER]].drop_duplicates())
     if n:
-        m = len(annotation_assist)
+        m = len(judgments)
         logger.info("%d unique question/answer pairs, %d judgments (%0.3f%%)" % (n, m, 100.0 * m / n))
     return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})
+
+
+def strip_newlines_from_answer_text(answers):
+    """
+    The Annotation Assist tool strips newlines from answer text, so remove them from the answer text of any data frame
+    that needs to be aligned with Annotation Assist output.
+
+    :param answers: table containing answer text
+    :type answers: pandas.DataFrame
+    :return: table with newlines removed from the answer text
+    :rtype: pandas.DataFrame
+    """
+    answers[ANSWER] = answers[ANSWER].str.replace("\n", "")
+    return answers
