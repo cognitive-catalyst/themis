@@ -1,6 +1,9 @@
+from __future__ import print_function
+
 import json
 import logging
 import os
+import sys
 import time
 
 import pandas
@@ -13,7 +16,7 @@ ANSWER = "Answer"
 ANSWER_ID = "Answer Id"
 TITLE = "Title"
 FILENAME = "Filename"
-DOCUMENT_ID ="Document Id"
+DOCUMENT_ID = "Document Id"
 CONFIDENCE = "Confidence"
 FREQUENCY = "Frequency"
 CORRECT = "Correct"
@@ -43,11 +46,15 @@ class CsvFileType(object):
         self.rename = rename
 
     def __call__(self, filename):
-        csv = from_csv(filename, usecols=self.columns)
-        if self.rename is not None:
-            csv = csv.rename(columns=self.rename)
-        csv.filename = filename
-        return csv
+        try:
+            csv = from_csv(filename, usecols=self.columns)
+            if self.rename is not None:
+                csv = csv.rename(columns=self.rename)
+            csv.filename = filename
+            return csv
+        except ValueError as e:
+            print("Invalid format for %s: %s" % (filename, e), file=sys.stderr)
+            raise e
 
 
 class DataFrameCheckpoint(object):
