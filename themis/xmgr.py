@@ -160,6 +160,45 @@ def verify_answer_ids(corpus, truth, output_directory):
         print("All truth answer ids are in the corpus.")
 
 
+def examine_truth(corpus, truth):
+    """
+    Print an HTML file of all the answers in the truth with their corresponding questions
+
+    :param corpus: corpus containing mapping of answer IDs to answers
+    :type corpus: pandas.DataFrame
+    :param truth: truth containing mapping of questions to answer IDs
+    :type truth: pandas.DataFrame
+    """
+    truth = pandas.merge(truth, corpus, on=ANSWER_ID, how="left")[[QUESTION, ANSWER, ANSWER_ID]]
+    print("""
+<html>
+
+<head>
+    <style>
+        div {
+            border: 5px solid black;
+        }
+    </style>
+</head>
+<body>""")
+    for (answer, answer_id), mapping in sorted(truth.groupby((ANSWER, ANSWER_ID)), key=lambda x: (-len(x[1]), x[0][0])):
+        questions = "\n".join("<LI>%s</LI>" % q for q in mapping[QUESTION].sort_values())
+
+        s = """
+<div>
+    <h1>%s (%d questions)</h1>
+    %s
+    <hr>
+    <ol>
+        %s
+    </ol>
+</div>""" % (answer_id, len(mapping), answer, questions)
+        print(s.encode("utf-8"))
+    print("""
+</body>
+</html>""")
+
+
 class DownloadCorpusFromXmgrClosure(object):
     def __init__(self, xmgr, output_directory, checkpoint_frequency, max_docs):
         self.xmgr = xmgr

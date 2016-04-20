@@ -19,7 +19,7 @@ from themis.plot import generate_curves, plot_curves
 from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
     sample_questions
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    verify_answer_ids, TruthFileType
+    verify_answer_ids, TruthFileType, examine_truth
 
 
 def main():
@@ -49,6 +49,11 @@ def xmgr_command(subparsers):
     xmgr_shared_arguments.add_argument("username", help="XMGR username")
     xmgr_shared_arguments.add_argument("password", help="XMGR password")
 
+    verify_arguments = argparse.ArgumentParser(add_help=False)
+    verify_arguments.add_argument("corpus", type=CorpusFileType(),
+                                  help="corpus file created by the 'download corpus' command")
+    verify_arguments.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
+
     output_directory = argparse.ArgumentParser(add_help=False)
     output_directory.add_argument("--output-directory", metavar="OUTPUT-DIRECTORY", type=str, default=".",
                                   help="output directory")
@@ -74,13 +79,15 @@ def xmgr_command(subparsers):
     xmgr_filter.add_argument("--max-size", metavar="MAX-SIZE", type=int,
                              help="maximum size of answer text in characters")
     xmgr_filter.set_defaults(func=fixup_corpus_handler)
-    # Verify that truth answer Ids
-    xmgr_verify = subparsers.add_parser("verify", parents=[output_directory],
+    # Verify that truth answer Ids are in the corpus.
+    xmgr_verify = subparsers.add_parser("verify", parents=[verify_arguments, output_directory],
                                         help="ensure that all truth answer Ids are in the corpus")
-    xmgr_verify.add_argument("corpus", type=CorpusFileType(),
-                             help="corpus file created by the 'download corpus' command")
-    xmgr_verify.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
     xmgr_verify.set_defaults(func=verify_handler)
+    # Write questions and answers in truth to an HTML file.
+    xmgr_examine = subparsers.add_parser("examine-truth", parents=[verify_arguments],
+                                         help="create human-readable truth file with answers and their " +
+                                              "associated questions")
+    xmgr_examine.set_defaults(func=examine_handler)
 
 
 def corpus_handler(args):
@@ -101,6 +108,10 @@ def fixup_corpus_handler(args):
 
 def verify_handler(args):
     verify_answer_ids(args.corpus, args.truth, args.output_directory)
+
+
+def examine_handler(args):
+    examine_truth(args.corpus, args.truth)
 
 
 def question_command(subparsers):
