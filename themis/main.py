@@ -63,8 +63,8 @@ def xmgr_command(subparsers):
     # Download corpus from XMGR.
     xmgr_corpus = subparsers.add_parser("corpus", parents=[xmgr_shared_arguments, output_directory],
                                         help="download corpus")
-    xmgr_corpus.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=5,
-                             help="how often to flush to a checkpoint file")
+    xmgr_corpus.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=10,
+                             help="flush corpus to checkpoint file after downloading this many documents")
     xmgr_corpus.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
                              help="maximum number of corpus documents to download")
     xmgr_corpus.add_argument("--retries", type=int, help="number of times to retry downloading after an error")

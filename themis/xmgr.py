@@ -99,6 +99,7 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     if os.path.isfile(corpus_csv) and not os.path.isfile(document_ids_csv):
         logger.info("Corpus already downloaded")
         return
+    logger.info("Download corpus from %s" % xmgr)
     document_ids = sorted(set(document["id"] for document in xmgr.get_documents()))
     document_ids = document_ids[:max_docs]
     n = len(document_ids)
