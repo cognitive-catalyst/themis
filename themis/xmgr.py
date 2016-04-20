@@ -237,14 +237,19 @@ class XmgrProject(object):
     def get_paus_from_document(self, document_id):
         logger.debug("Get PAUs from document %s" % document_id)
         paus = []
-        # Get the TREC ids corresponding to the document Id.
-        trec_document = self.get("xmgr/corpus/wea/trec", {"srcDocId": document_id})
-        trec_ids = set(item["DOCNO"] for item in trec_document["items"])
-        logger.debug("%d TREC IDs in document %s" % (len(trec_ids), document_id))
-        # Get the PAUs corresponding to the trec IDs.
-        for trec_id in trec_ids:
-            paus.extend(self.get(self.urljoin("wcea/api/GroundTruth/paus", trec_id))["hits"])
+        pau_ids = self.get_pau_ids_in_document(document_id)
+        logger.debug("%d TREC IDs in document %s" % (len(pau_ids), document_id))
+        for trec_id in pau_ids:
+            paus.extend(self.get_paus(trec_id))
         return paus
+
+    def get_pau_ids_in_document(self, document_id):
+        document = self.get("xmgr/corpus/wea/trec", {"srcDocId": document_id})
+        pau_ids = set(item["DOCNO"] for item in document["items"])
+        return pau_ids
+
+    def get_paus(self, i):
+        return self.get(self.urljoin("wcea/api/GroundTruth/paus", i))["hits"]
 
     def get(self, path, params=None, headers=None):
         def debug_msg():

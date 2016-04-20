@@ -73,12 +73,21 @@ def xmgr_command(subparsers):
     xmgr_truth = subparsers.add_parser("truth", parents=[xmgr_shared_arguments, output_directory],
                                        help="download truth file")
     xmgr_truth.set_defaults(func=truth_handler)
+    # Download PAU ids corresponding to a document.
+    xmgr_pau = subparsers.add_parser("pau-ids", parents=[xmgr_shared_arguments],
+                                     help="list PAU ids corresponding to a document")
+    xmgr_pau.add_argument("document", help="document id")
+    xmgr_pau.set_defaults(func=document_handler)
+    # Download individual PAU.
+    xmgr_pau = subparsers.add_parser("pau", parents=[xmgr_shared_arguments], help="download an individual PAU")
+    xmgr_pau.add_argument("pau", help="PAU id")
+    xmgr_pau.set_defaults(func=pau_handler)
     # Filter corpus.
     xmgr_filter = subparsers.add_parser("filter", help="fix up corpus")
     xmgr_filter.add_argument("corpus", type=CorpusFileType(), help="file downloaded by 'xmgr corpus'")
     xmgr_filter.add_argument("--max-size", metavar="MAX-SIZE", type=int,
                              help="maximum size of answer text in characters")
-    xmgr_filter.set_defaults(func=fixup_corpus_handler)
+    xmgr_filter.set_defaults(func=filter_corpus_handler)
     # Verify that truth answer Ids are in the corpus.
     xmgr_verify = subparsers.add_parser("verify", parents=[verify_arguments, output_directory],
                                         help="ensure that all truth answer Ids are in the corpus")
@@ -101,7 +110,17 @@ def truth_handler(args):
     download_truth_from_xmgr(xmgr, args.output_directory)
 
 
-def fixup_corpus_handler(args):
+def pau_handler(args):
+    xmgr = XmgrProject(args.url, args.username, args.password)
+    print(pretty_print_json(xmgr.get_paus(args.pau)))
+
+
+def document_handler(args):
+    xmgr = XmgrProject(args.url, args.username, args.password)
+    print(", ".join(xmgr.get_pau_ids_in_document(args.document)))
+
+
+def filter_corpus_handler(args):
     corpus = filter_corpus(args.corpus, args.max_size)
     print_csv(corpus)
 
