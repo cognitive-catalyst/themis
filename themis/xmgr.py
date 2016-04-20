@@ -8,6 +8,7 @@ import requests
 from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID
 from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, percent_complete_message, \
     CsvFileType
+from themis.question import QAPairFileType
 
 
 def download_truth_from_xmgr(xmgr, output_directory):
@@ -130,7 +131,7 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
 
 
-def verify_answer_ids(corpus, truth, output_directory):
+def validate_truth_with_corpus(corpus, truth, output_directory):
     """
     Verify that all the answer IDs in the truth appear in the corpus.
 
@@ -141,13 +142,14 @@ def verify_answer_ids(corpus, truth, output_directory):
     :type corpus: pandas.DataFrame
     :param truth:  truth downloaded from xmgr
     :type truth: pandas.DataFrame
-    :param output_directory:
-    :type output_directory:
+    :param output_directory: directory in which to create files
+    :type output_directory: str
     """
     truth_ids = set(truth[ANSWER_ID])
     corpus_ids = set(corpus[ANSWER_ID])
     d = truth_ids - corpus_ids
     if d:
+        ensure_directory_exists(output_directory)
         print("%d truth answer ids of %d not in corpus (%0.3f%%)" %
               (len(d), len(truth_ids), 100.0 * len(d) / len(truth_ids)))
         non_corpus = truth[truth[ANSWER_ID].isin(d)]
@@ -159,6 +161,36 @@ def verify_answer_ids(corpus, truth, output_directory):
         print("Split truth into %s and %s." % (truth_in_corpus_csv, truth_not_in_corpus_csv))
     else:
         print("All truth answer ids are in the corpus.")
+
+
+def validate_answers_with_corpus(corpus, qa_pairs, output_directory):
+    """
+    Verify that all the answers in the Q&A pairs are present in the corpus.
+
+    If they are all present in the corpus, this does nothing. If any are missing, it creates two new files:
+    answers.in-corpus.csv and answers.not-in-corpus.csv.
+
+    :param corpus: corpus downloaded from xmgr
+    :type corpus: pandas.DataFrame
+    :param qa_pairs: Q&A pairs extracted from the usage logs
+    :type qa_pairs: pandas.DataFrame
+    :param output_directory: directory in which to create files
+    :type output_directory: str
+    """
+    missing_answers = ~qa_pairs[ANSWER].isin(corpus[ANSWER])
+    if any(missing_answers):
+        ensure_directory_exists(output_directory)
+        missing_answer_qa_pairs = qa_pairs[missing_answers]
+        n = len(qa_pairs)
+        m = len(missing_answer_qa_pairs)
+        print("%d usage log answers of %d (%0.3f%%) not in the corpus" % (m, n, 100.0 * m / n))
+        ansewrs_in_corpus_csv = os.path.join(output_directory, "answers.in-corpus.csv")
+        answers_not_in_corpus_csv = os.path.join(output_directory, "answers.not-in-corpus.csv")
+        print("Writing Q&A pairs to %s and %s" % (answers_not_in_corpus_csv, ansewrs_in_corpus_csv))
+        to_csv(ansewrs_in_corpus_csv, QAPairFileType.output_format(qa_pairs[~missing_answers]))
+        to_csv(answers_not_in_corpus_csv, QAPairFileType.output_format(missing_answer_qa_pairs))
+    else:
+        print("All usage log answers are the corpus.")
 
 
 def examine_truth(corpus, truth):
