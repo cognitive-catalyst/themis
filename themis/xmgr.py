@@ -145,20 +145,18 @@ def validate_truth_with_corpus(corpus, truth, output_directory):
     :param output_directory: directory in which to create files
     :type output_directory: str
     """
-    truth_ids = set(truth[ANSWER_ID])
-    corpus_ids = set(corpus[ANSWER_ID])
-    d = truth_ids - corpus_ids
-    if d:
+    missing_answers = ~truth[ANSWER_ID].isin(corpus[ANSWER_ID])
+    if any(missing_answers):
         ensure_directory_exists(output_directory)
-        print("%d truth answer ids of %d not in corpus (%0.3f%%)" %
-              (len(d), len(truth_ids), 100.0 * len(d) / len(truth_ids)))
-        non_corpus = truth[truth[ANSWER_ID].isin(d)]
-        truth_not_in_corpus_csv = os.path.join(output_directory, "truth.not-in-corpus.csv")
-        to_csv(truth_not_in_corpus_csv, TruthFileType.output_format(non_corpus))
+        missing_truth_answers = truth[missing_answers]
+        n = len(truth)
+        m = len(missing_truth_answers)
+        print("%d truth answers of %d (%0.3f%%) not in the corpus" % (m, n, 100.0 * m / n))
         truth_in_corpus_csv = os.path.join(output_directory, "truth.in-corpus.csv")
-        truth = truth[~truth[ANSWER_ID].isin(d)]
-        to_csv(truth_in_corpus_csv, TruthFileType.output_format(truth))
-        print("Split truth into %s and %s." % (truth_in_corpus_csv, truth_not_in_corpus_csv))
+        truth_not_in_corpus_csv = os.path.join(output_directory, "truth.not-in-corpus.csv")
+        print("Writing truth to %s and %s" % (truth_in_corpus_csv, truth_not_in_corpus_csv))
+        to_csv(truth_in_corpus_csv, TruthFileType.output_format(truth[~missing_answers]))
+        to_csv(truth_not_in_corpus_csv, TruthFileType.output_format(missing_truth_answers))
     else:
         print("All truth answer ids are in the corpus.")
 
@@ -184,10 +182,10 @@ def validate_answers_with_corpus(corpus, qa_pairs, output_directory):
         n = len(qa_pairs)
         m = len(missing_answer_qa_pairs)
         print("%d usage log answers of %d (%0.3f%%) not in the corpus" % (m, n, 100.0 * m / n))
-        ansewrs_in_corpus_csv = os.path.join(output_directory, "answers.in-corpus.csv")
+        answers_in_corpus_csv = os.path.join(output_directory, "answers.in-corpus.csv")
         answers_not_in_corpus_csv = os.path.join(output_directory, "answers.not-in-corpus.csv")
-        print("Writing Q&A pairs to %s and %s" % (answers_not_in_corpus_csv, ansewrs_in_corpus_csv))
-        to_csv(ansewrs_in_corpus_csv, QAPairFileType.output_format(qa_pairs[~missing_answers]))
+        print("Writing Q&A pairs to %s and %s" % (answers_not_in_corpus_csv, answers_in_corpus_csv))
+        to_csv(answers_in_corpus_csv, QAPairFileType.output_format(qa_pairs[~missing_answers]))
         to_csv(answers_not_in_corpus_csv, QAPairFileType.output_format(missing_answer_qa_pairs))
     else:
         print("All usage log answers are the corpus.")
