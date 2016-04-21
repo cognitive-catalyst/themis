@@ -30,7 +30,8 @@ def answer_questions(system, questions, output_filename, checkpoint_frequency):
         for i, question in enumerate(questions, len(answers.recovered) + 1):
             if i is 1 or i == n or i % checkpoint_frequency is 0:
                 logger.info(percent_complete_message("Question", i, n))
-            answer, confidence = system.ask(question)
+            # NLC and Solr cannot handle newlines in questions.
+            answer, confidence = system.ask(question.replace("\n", " "))
             logger.debug("%s\t%s\t%s" % (question, answer, confidence))
             answers.write(question, answer, confidence)
     finally:
