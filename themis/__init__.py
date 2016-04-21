@@ -8,6 +8,8 @@ import time
 
 import pandas
 
+__version__= "2.2.0"
+
 logger = logging.getLogger(__name__)
 
 QUESTION = "Question"

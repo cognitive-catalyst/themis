@@ -1,8 +1,10 @@
 from setuptools import setup
 
+import themis
+
 setup(
     name='themis',
-    version='2.2.0',
+    version=themis.__version__,
     packages=['themis'],
     entry_points={
         'console_scripts': ['themis=themis.main:main'],

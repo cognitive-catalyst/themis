@@ -9,7 +9,7 @@ import os
 import pandas
 
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
-    retry
+    retry, __version__
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
@@ -37,6 +37,8 @@ def main():
     judge_command(subparsers)
     # Generate ROC and precision curves from judged answers.
     plot_command(parser, subparsers)
+    # Print the version number.
+    version_command(subparsers)
 
     args = parser.parse_args()
     configure_logger(args.log.upper(), "%(asctime)-15s %(levelname)-8s %(message)s")
@@ -419,6 +421,15 @@ class CurvesHandlerClosure(object):
 
     def __call__(self, args):
         curves_handler(self.parser, args)
+
+
+def version_command(subparsers):
+    version_parser = subparsers.add_parser("version", help="print version number")
+    version_parser.set_defaults(func=version_handler)
+
+
+def version_handler(_):
+    print("Themis version %s" % __version__)
 
 
 if __name__ == "__main__":
