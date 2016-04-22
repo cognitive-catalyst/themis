@@ -108,7 +108,7 @@ To generate the corpus file run
 
 To generate the question/answer pairs file run
 
-    themis judge pairs answers.wea.csv answers.solr.csv answers.nlc.csv > annotation-assist.pairs.json
+    themis judge pairs answers.wea.csv answers.solr.csv answers.nlc.csv > annotation-assist.pairs.csv
 
 Annotation is a time consuming task, and it may be prohibitively difficult to annotate all system answers.
 You may optionally take a sample of questions with the following command
