@@ -104,11 +104,11 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     document_ids = sorted(set(document["id"] for document in xmgr.get_documents()))
     document_ids = document_ids[:max_docs]
     n = len(document_ids)
-    downloaded_document_ids = DataFrameCheckpoint(document_ids_csv, ["Document Id"], checkpoint_frequency)
+    downloaded_document_ids = DataFrameCheckpoint(document_ids_csv, [DOCUMENT_ID, "Paus"], checkpoint_frequency)
     corpus = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID])
     try:
         if downloaded_document_ids.recovered:
-            logger.info("Recovered PAUs from %d documents from previous run" % len(downloaded_document_ids.recovered))
+            logger.info("Recovered %d documents from previous run" % len(downloaded_document_ids.recovered))
         document_ids = sorted(set(document_ids) - downloaded_document_ids.recovered)
         m = len(document_ids)
         start = len(downloaded_document_ids.recovered) + 1
@@ -120,7 +120,9 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
                 paus = xmgr.get_paus_from_document(document_id)
                 for pau in paus:
                     corpus.write(pau["id"], pau["responseMarkup"], pau["title"], pau["sourceName"], document_id)
-                downloaded_document_ids.write(str(document_id))
+                # The document id and number of PAUs are both integers. Cast them to strings, otherwise pandas will
+                # write them as floats.
+                downloaded_document_ids.write(str(document_id), str(len(paus)))
     finally:
         downloaded_document_ids.close()
         corpus.close()
