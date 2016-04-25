@@ -53,21 +53,17 @@ def question_frequency(usage_log):
     return questions
 
 
-def sample_questions(qa_pairs, sample_size):
-    """
-    Sample questions by frequency.
+class QuestionFrequencyFileType(CsvFileType):
+    columns = [QUESTION, FREQUENCY]
 
-    :param qa_pairs: question/answer pairs with question frequencies
-    :type qa_pairs: pandas.DataFrame
-    :param sample_size: number of questions to sample
-    :type sample_size: int
-    :return: sample of unique questions and their frequencies
-    :rtype: pandas.DataFrame
-    """
-    qa_pairs = qa_pairs[[QUESTION, FREQUENCY]].drop_duplicates(QUESTION)
-    sample = qa_pairs.sample(sample_size, weights=FREQUENCY)
-    sample = sample.sort_values([FREQUENCY, QUESTION], ascending=[False, True])
-    return sample.set_index(QUESTION)
+    def __init__(self):
+        super(self.__class__, self).__init__(QuestionFrequencyFileType.columns)
+
+    @staticmethod
+    def output_format(question_frequency):
+        question_frequency = question_frequency[QuestionFrequencyFileType.columns]
+        question_frequency = question_frequency.sort_values(FREQUENCY, ascending=False)
+        return question_frequency.set_index(QUESTION)
 
 
 class UsageLogFileType(CsvFileType):

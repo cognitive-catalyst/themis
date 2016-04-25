@@ -3,6 +3,7 @@ import numpy
 import pandas
 
 from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, QUESTION, ANSWER
+from themis.analyze import SYSTEM
 from themis.judge import strip_newlines_from_answer_text
 
 THRESHOLD = "Threshold"
@@ -12,24 +13,19 @@ PRECISION = "Precision"
 ATTEMPTED = "Attempted"
 
 
-def generate_curves(curve_type, labeled_qa_pairs, judgments, frequency):
+def generate_curves(curve_type, collated):
     """
     Generate curves of the same type for multiple systems.
 
+    :param collated: questions, answers, judgments, confidences, and frequencies across systems
+    :type collated: pandas.DataFrame
     :param curve_type: 'precision' or 'roc'
     :type curve_type: str
-    :param labeled_qa_pairs: mapping of system labels to Q&A pairs
-    :type labeled_qa_pairs: {str : pandas.DataFrame}
-    :param judgments: Q&A pairs with purview and correctness judgments
-    :type judgments: pandas.DataFrame
-    :param frequency: questions and their frequencies
-    :type frequency: pandas.DataFrame
     :return: mapping of system labels to plot data
     :rtype: {str : pandas.DataFrame}
     """
     curves = {}
-    for label, answers in labeled_qa_pairs:
-        data = add_judgments_and_frequencies_to_qa_pairs(answers, judgments, frequency)
+    for label, data in collated.groupby(SYSTEM):
         if curve_type == "precision":
             curves[label] = precision_curve(data)
         elif curve_type == "roc":
@@ -138,5 +134,5 @@ def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_freq
     :rtype: pandas.DataFrame
     """
     qa_pairs = strip_newlines_from_answer_text(qa_pairs)
-    qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER))
+    qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER), how="left")
     return pandas.merge(qa_pairs, question_frequencies, on=QUESTION)

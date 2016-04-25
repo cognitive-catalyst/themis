@@ -3,7 +3,7 @@ import re
 import pandas
 # noinspection PyPackageRequirements
 import solr
-from themis import logger, DataFrameCheckpoint, percent_complete_message
+from themis import logger, DataFrameCheckpoint, percent_complete_message, CsvFileType
 from themis import QUESTION, ANSWER, CONFIDENCE
 
 
@@ -88,3 +88,12 @@ class Solr(object):
     def escape_solr_query(self, s):
         s = s.replace("/", "\\/")
         return re.sub(self.SOLR_CHARS, lambda m: "\%s" % m.group(1), s)
+
+
+class AnswersFileType(CsvFileType):
+    """
+    Questions answered by a system
+    """
+
+    def __init__(self):
+        super(self.__class__, self).__init__([QUESTION, ANSWER, CONFIDENCE])
