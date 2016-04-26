@@ -36,7 +36,6 @@ def annotation_assist_qa_input(answers, questions, judgments):
     """
     qa_pairs = pandas.concat(answers)
     qa_pairs = qa_pairs.drop_duplicates([QUESTION, ANSWER])
-    qa_pairs = strip_newlines_from_answer_text(qa_pairs)
     logger.info("%d Q&A pairs" % len(qa_pairs))
     if questions is not None:
         qa_pairs = pandas.merge(qa_pairs, questions)
@@ -134,24 +133,9 @@ def augment_usage_log(usage_log, judgments):
     :rtype: pandas.DataFrame
     """
     usage_log = usage_log.rename(columns={QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER})
-    usage_log = strip_newlines_from_answer_text(usage_log)
     augmented = pandas.merge(usage_log, judgments, on=(QUESTION, ANSWER), how="left")
     n = len(usage_log[[QUESTION, ANSWER]].drop_duplicates())
     if n:
         m = len(judgments)
         logger.info("%d unique question/answer pairs, %d judgments (%0.3f%%)" % (n, m, 100.0 * m / n))
     return augmented.rename(columns={QUESTION: QUESTION_TEXT, ANSWER: TOP_ANSWER_TEXT})
-
-
-def strip_newlines_from_answer_text(answers):
-    """
-    The Annotation Assist tool strips newlines from answer text, so remove them from the answer text of any data frame
-    that needs to be aligned with Annotation Assist output.
-
-    :param answers: table containing answer text
-    :type answers: pandas.DataFrame
-    :return: table with newlines removed from the answer text
-    :rtype: pandas.DataFrame
-    """
-    answers[ANSWER] = answers[ANSWER].str.replace("\n", "")
-    return answers
