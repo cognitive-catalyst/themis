@@ -25,7 +25,7 @@ from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosu
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Themis analysis toolkit")
+    parser = argparse.ArgumentParser(description="Themis analysis toolkit, version %s" % __version__)
     parser.add_argument("--log", default="INFO", help="logging level")
 
     subparsers = parser.add_subparsers(title="Q&A System analysis", description=__doc__)
