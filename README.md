@@ -129,15 +129,18 @@ This can be converted into the format used by Themis with the following command.
 
     themis judge interpret annotation-assist.judgments.csv > judgments.csv
 
-### Plot Curves
+### Analyze Results
 
 The correctness judgments along with the question frequencies can then be used to plot precision and
 (receiver operating characteristic) ROC curves.
 
-The following command generates precision curve data for the WEA, Solr, and NLC systems using the judgments obtained
-from Annotation Assist.
+First collate the results form multiple systems into a single file using the following command.
 
-    themis plot precision qa-pairs.csv answers.wea.csv answers.solr.csv answers.nlc.csv --labels WEA Solr NLC --judgments judgments.csv
+    themis analyze collate qa-pairs.csv answers.wea.csv answers.solr.csv answers.nlc.csv --labels WEA Solr NLC --judgments judgments.csv > collated.csv
+
+The following command generates precision curve data for the WEA, Solr, and NLC systems from the collated data.
+
+    themis analyze plot precision collated.csv
 
 This will create `WEA.precision.csv`, `Solr.precision.csv`, and `NLC.precision.csv` files containing threshold values
 and X and Y scatter plot values.

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy
 import pandas
 
-from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY
+from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, logger, CsvFileType
 from themis.analyze import SYSTEM
 
 THRESHOLD = "Threshold"
@@ -20,17 +20,21 @@ def generate_curves(curve_type, collated):
     :type collated: pandas.DataFrame
     :param curve_type: 'precision' or 'roc'
     :type curve_type: str
-    :return: mapping of system labels to plot data
+    :return: mapping of system labels to curve data
     :rtype: {str : pandas.DataFrame}
     """
     curves = {}
+    if any(collated.isnull()):
+        n = len(collated)
+        collated = collated.dropna()
+        m = n - len(collated)
+        logger.warning("Dropping %d of %d pairs missing information (%0.3f%%)" % (m, n, 100.0 * m / n))
+    try:
+        curve = {"precision": precision_curve, "roc": roc_curve}[curve_type]
+    except KeyError:
+        raise ValueError("Invalid curve type %s" % curve_type)
     for label, data in collated.groupby(SYSTEM):
-        if curve_type == "precision":
-            curves[label] = precision_curve(data)
-        elif curve_type == "roc":
-            curves[label] = roc_curve(data)
-        else:
-            raise ValueError("Invalid curve type %s" % curve_type)
+        curves[label] = curve(data)
     return curves
 
 
@@ -46,9 +50,10 @@ def roc_curve(judgments):
     ts = confidence_thresholds(judgments, True)
     true_positive_rates = [true_positive_rate(judgments, t) for t in ts]
     false_positive_rates = [false_positive_rate(judgments, t) for t in ts]
-    plot = pandas.DataFrame.from_dict(
-        {THRESHOLD: ts, TRUE_POSITIVE_RATE: true_positive_rates, FALSE_POSITIVE_RATE: false_positive_rates})
-    return plot[[THRESHOLD, FALSE_POSITIVE_RATE, TRUE_POSITIVE_RATE]].set_index(THRESHOLD)
+    curve = pandas.DataFrame.from_dict({THRESHOLD: ts,
+                                        TRUE_POSITIVE_RATE: true_positive_rates,
+                                        FALSE_POSITIVE_RATE: false_positive_rates})
+    return curve
 
 
 def true_positive_rate(judgments, t):
@@ -59,9 +64,9 @@ def true_positive_rate(judgments, t):
 
 
 def false_positive_rate(judgments, t):
-    out_of_purview_questions = judgments[~judgments[IN_PURVIEW]]
+    out_of_purview_questions = judgments[judgments[IN_PURVIEW] == False]
     false_positive = sum(out_of_purview_questions[out_of_purview_questions[CONFIDENCE] >= t][FREQUENCY])
-    out_of_purview = sum(judgments[~judgments[IN_PURVIEW]][FREQUENCY])
+    out_of_purview = sum(out_of_purview_questions[FREQUENCY])
     return false_positive / float(out_of_purview)
 
 
@@ -77,8 +82,8 @@ def precision_curve(judgments):
     ts = confidence_thresholds(judgments, False)
     precision_values = [precision(judgments, t) for t in ts]
     attempted_values = [questions_attempted(judgments, t) for t in ts]
-    plot = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
-    return plot[[THRESHOLD, ATTEMPTED, PRECISION]].set_index(THRESHOLD)
+    curve = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
+    return curve
 
 
 def precision(judgments, t):
@@ -111,3 +116,29 @@ def plot_curves(curves):
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.show()
+
+
+class PrecisionCurveFileType(CsvFileType):
+    columns = [THRESHOLD, ATTEMPTED, PRECISION]
+
+    def __init__(self):
+        super(self.__class__, self).__init__(self.__class__.columns)
+
+    @classmethod
+    def output_format(cls, curve):
+        curve = curve[cls.columns]
+        curve = curve.sort_values(THRESHOLD)
+        return curve.set_index(THRESHOLD)
+
+
+class ROCCurveFileType(CsvFileType):
+    columns = [THRESHOLD, FALSE_POSITIVE_RATE, TRUE_POSITIVE_RATE]
+
+    def __init__(self):
+        super(self.__class__, self).__init__(self.__class__.columns)
+
+    @classmethod
+    def output_format(cls, curve):
+        curve = curve[cls.columns]
+        curve = curve.sort_values(THRESHOLD)
+        return curve.set_index(THRESHOLD)
