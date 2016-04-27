@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import numpy
 import pandas
 
-from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, logger, CsvFileType
-from themis.analyze import SYSTEM
+from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, CsvFileType
+from themis.analyze import SYSTEM, drop_missing
 
 THRESHOLD = "Threshold"
 TRUE_POSITIVE_RATE = "True Positive Rate"
@@ -23,16 +23,12 @@ def generate_curves(curve_type, collated):
     :return: mapping of system labels to curve data
     :rtype: {str : pandas.DataFrame}
     """
-    curves = {}
-    if any(collated.isnull()):
-        n = len(collated)
-        collated = collated.dropna()
-        m = n - len(collated)
-        logger.warning("Dropping %d of %d pairs missing information (%0.3f%%)" % (m, n, 100.0 * m / n))
+    collated = drop_missing(collated)
     try:
         curve = {"precision": precision_curve, "roc": roc_curve}[curve_type]
     except KeyError:
         raise ValueError("Invalid curve type %s" % curve_type)
+    curves = {}
     for label, data in collated.groupby(SYSTEM):
         curves[label] = curve(data)
     return curves

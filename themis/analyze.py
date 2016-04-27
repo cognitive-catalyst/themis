@@ -1,8 +1,37 @@
+import itertools
+
 import pandas
 
-from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY
+from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger
 
 SYSTEM = "System"
+
+
+def system_similarity(systems_data):
+    """
+    For each system pair, return the number of questions they answered the same.
+
+    :param systems_data: collated results for all systems
+    :type systems_data: pandas.DataFrame
+    :return: table of pairs of systems and their similarity statistics
+    :rtype: pandas.DataFrame
+    """
+    systems_data = drop_missing(systems_data)
+    systems = systems_data[SYSTEM].drop_duplicates().sort_values()
+    columns = ["System 1", "System 2", "Same Answer", "Same Answer %"]
+    results = pandas.DataFrame(columns=columns)
+    for x, y in itertools.combinations(systems, 2):
+        data_x = systems_data[systems_data[SYSTEM] == x]
+        data_y = systems_data[systems_data[SYSTEM] == y]
+        m = pandas.merge(data_x, data_y, on=QUESTION)
+        n = len(m)
+        logger.info("%d question/answer pairs in common for %s and %s" % (n, x, y))
+        same_answer = sum(m["%s_x" % ANSWER] == m["%s_y" % ANSWER])
+        same_answer_pct = 100.0 * same_answer / n
+        results = results.append(
+            pandas.DataFrame([[x, y, same_answer, same_answer_pct]], columns=columns))
+    results["Same Answer"] = results["Same Answer"].astype("int64")
+    return results.set_index(["System 1", "System 2"])
 
 
 def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies, remove_newlines):
@@ -38,6 +67,15 @@ def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_freq
         del qa_pairs[ANSWER]
         qa_pairs = qa_pairs.rename(columns={"Temp": ANSWER})
     return qa_pairs
+
+
+def drop_missing(systems_data):
+    if any(systems_data.isnull()):
+        n = len(systems_data)
+        systems_data = systems_data.dropna()
+        m = n - len(systems_data)
+        logger.warning("Dropping %d of %d question/answer pairs missing information (%0.3f%%)" % (m, n, 100.0 * m / n))
+    return systems_data
 
 
 class CollatedFileType(CsvFileType):

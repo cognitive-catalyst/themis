@@ -10,7 +10,7 @@ import pandas
 
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     retry, __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT
-from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs
+from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
@@ -424,6 +424,11 @@ def analyze_command(parser, subparsers):
     plot_parser.add_argument("--output", default=".", help="output directory")
     plot_parser.add_argument("--draw", action="store_true", help="draw plots")
     plot_parser.set_defaults(func=plot_handler)
+    # Similarity of system answers.
+    similarity_parser = subparsers.add_parser("similarity", help="measure similarity of different systems' answers")
+    similarity_parser.add_argument("collated", type=CollatedFileType(),
+                                   help="combined system answers and judgments created by 'analyze collate'")
+    similarity_parser.set_defaults(func=similarity_handler)
 
 
 # noinspection PyTypeChecker
@@ -466,6 +471,11 @@ def plot_handler(args):
     # Optionally draw plot.
     if args.draw:
         plot_curves(curves)
+
+
+def similarity_handler(args):
+    similarity = system_similarity(args.collated)
+    print_csv(similarity)
 
 
 def version_command(subparsers):
