@@ -10,7 +10,8 @@ import pandas
 
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     retry, __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT
-from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity
+from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
+    compare_systems
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
@@ -429,6 +430,15 @@ def analyze_command(parser, subparsers):
     similarity_parser.add_argument("collated", type=CollatedFileType(),
                                    help="combined system answers and judgments created by 'analyze collate'")
     similarity_parser.set_defaults(func=similarity_handler)
+    # Comparison of system pairs.
+    comparison_parser = subparsers.add_parser("compare", help="compare two systems' performance")
+    comparison_parser.add_argument("type", choices=["better", "worse"],
+                                   help="relative performance of first to second system")
+    comparison_parser.add_argument("system_1", metavar="system-1", help="first system")
+    comparison_parser.add_argument("system_2", metavar="system-2", help="second system")
+    comparison_parser.add_argument("collated", type=CollatedFileType(),
+                                   help="combined system answers and judgments created by 'analyze collate'")
+    comparison_parser.set_defaults(func=comparison_handler)
 
 
 # noinspection PyTypeChecker
@@ -476,6 +486,11 @@ def plot_handler(args):
 def similarity_handler(args):
     similarity = system_similarity(args.collated)
     print_csv(similarity)
+
+
+def comparison_handler(args):
+    comparison = compare_systems(args.collated, args.system_1, args.system_2, args.type)
+    print_csv(comparison)
 
 
 def version_command(subparsers):

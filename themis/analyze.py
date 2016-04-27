@@ -34,6 +34,53 @@ def system_similarity(systems_data):
     return results.set_index(["System 1", "System 2"])
 
 
+def compare_systems(systems_data, x, y, comparison_type):
+    """
+    On which questions did system x do better or worse than system y?
+
+    System x did better than system y if it correctly answered a question when system y did not, and vice versa.
+
+    :param systems_data: collated results for all systems
+    :type systems_data: pandas.DataFrame
+    :param x: system name
+    :type x: str
+    :param y: system name
+    :type y: str
+    :param comparison_type: "better" or "worse"
+    :type comparison_type: str
+    :return: all question/answer pairs from system x that were either better or worse than system y
+    :rtype: pandas.DataFrame
+    """
+
+    def col_name(type, system):
+        return type + " " + system
+
+    systems_data = drop_missing(systems_data)
+    systems_data = systems_data[systems_data[IN_PURVIEW]]
+    data_x = systems_data[systems_data[SYSTEM] == x]
+    data_y = systems_data[systems_data[SYSTEM] == y][[QUESTION, ANSWER, CONFIDENCE, CORRECT]]
+    questions = pandas.merge(data_x, data_y, on=QUESTION, how="left", suffixes=(" " + x, " " + y)).dropna()
+    n = len(questions)
+    logger.info("%d shared question/answer pairs between %s and %s" % (n, x, y))
+    x_correct = col_name(CORRECT, x)
+    y_correct = col_name(CORRECT, y)
+    if comparison_type == "better":
+        a = questions[x_correct] == True
+        b = questions[y_correct] == False
+    elif comparison_type == "worse":
+        a = questions[x_correct] == False
+        b = questions[y_correct] == True
+    else:
+        raise ValueError("Invalid comparison type %s" % comparison_type)
+    d = questions[a & b]
+    m = len(d)
+    logger.info("%d %s (%0.3f%%)" % (m, comparison_type, 100.0 * m / n))
+    d = d[[QUESTION, FREQUENCY,
+           col_name(ANSWER, x), col_name(CONFIDENCE, x), col_name(ANSWER, y), col_name(CONFIDENCE, y)]]
+    d = d.sort_values([col_name(CONFIDENCE, x), FREQUENCY, QUESTION], ascending=(False, False, True))
+    return d.set_index(QUESTION)
+
+
 def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies, remove_newlines):
     """
     Collate system answer confidences and annotator judgments by question/answer pair.
