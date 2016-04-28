@@ -11,7 +11,7 @@ import pandas
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     retry, __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
-    compare_systems
+    compare_systems, oracle_combination
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
@@ -439,6 +439,14 @@ def analyze_command(parser, subparsers):
     comparison_parser.add_argument("collated", type=CollatedFileType(),
                                    help="combined system answers and judgments created by 'analyze collate'")
     comparison_parser.set_defaults(func=comparison_handler)
+    # Create multi-system oracle.
+    oracle_parser = subparsers.add_parser("oracle",
+                                          help="combine multiple systems into a single oracle system " +
+                                               "that is correct when any one of them is correct")
+    oracle_parser.add_argument("collated", type=CollatedFileType(),
+                               help="combined system answers and judgments created by 'analyze collate'")
+    oracle_parser.add_argument("system_names", metavar="system", nargs="+", help="name of systems to combine")
+    oracle_parser.set_defaults(func=oracle_handler)
 
 
 # noinspection PyTypeChecker
@@ -491,6 +499,12 @@ def similarity_handler(args):
 def comparison_handler(args):
     comparison = compare_systems(args.collated, args.system_1, args.system_2, args.type)
     print_csv(comparison)
+
+
+def oracle_handler(args):
+    oracle_name = "%s Oracle" % "+".join(args.system_names)
+    oracle = oracle_combination(args.collated, args.system_names, oracle_name)
+    print_csv(CollatedFileType.output_format(oracle))
 
 
 def version_command(subparsers):
