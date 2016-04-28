@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy
 import pandas
 
-from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, CsvFileType
+from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, CsvFileType, QUESTION, logger
 from themis.analyze import SYSTEM, drop_missing
 
 THRESHOLD = "Threshold"
@@ -17,13 +17,18 @@ def generate_curves(curve_type, collated):
     Generate curves of the same type for multiple systems.
 
     :param collated: questions, answers, judgments, confidences, and frequencies across systems
-    :type collated: pandas.DataFrame
+    :type collated: list of pandas.DataFrame
     :param curve_type: 'precision' or 'roc'
     :type curve_type: str
     :return: mapping of system labels to curve data
     :rtype: {str : pandas.DataFrame}
     """
+    collated = pandas.concat(collated)
     collated = drop_missing(collated)
+    ds = collated.duplicated(subset=(SYSTEM, QUESTION))
+    if any(ds):
+        logger.error("Duplicate answers for %s" % ", ".join(collated[ds][SYSTEM].drop_duplicates()))
+        raise ValueError("Cannot have multiple answers to the same question from a single system")
     try:
         curve = {"precision": precision_curve, "roc": roc_curve}[curve_type]
     except KeyError:

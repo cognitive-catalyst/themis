@@ -93,9 +93,9 @@ def oracle_combination(systems_data, system_names, oracle_name):
     :param systems_data: collated results for all systems
     :type systems_data: pandas.DataFrame
     :param system_names: names of systems to combine
-    :type system_names: pandas.DataFrame
+    :type system_names: list of str
     :param oracle_name: the name of the combined system
-    :type oracle_name: pandas.DataFrame
+    :type oracle_name: str
     :return: oracle results in collated format
     :rtype: pandas.DataFrame
     """

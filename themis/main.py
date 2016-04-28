@@ -420,7 +420,7 @@ def analyze_command(parser, subparsers):
     # Plot collated results.
     plot_parser = subparsers.add_parser("plot", help="generate performance plots from judged answers")
     plot_parser.add_argument("type", choices=["roc", "precision"], help="type of plot to create")
-    plot_parser.add_argument("collated", type=CollatedFileType(),
+    plot_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                              help="combined system answers and judgments created by 'analyze collate'")
     plot_parser.add_argument("--output", default=".", help="output directory")
     plot_parser.add_argument("--draw", action="store_true", help="draw plots")
