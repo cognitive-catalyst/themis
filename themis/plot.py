@@ -108,12 +108,12 @@ def confidence_thresholds(judgments, add_max):
     return ts
 
 
-def plot_curves(curves):
+def plot_curves(curves, curve_type):
     x_label = curves.values()[0].columns[0]
     y_label = curves.values()[0].columns[1]
     for label, curve in curves.items():
         plt.plot(curve[x_label], curve[y_label], label=label)
-    plt.legend()
+    plt.legend(loc={"precision": 3, "roc": 1}[curve_type])
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.show()

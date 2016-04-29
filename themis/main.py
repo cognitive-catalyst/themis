@@ -17,7 +17,7 @@ from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_expe
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
     interpret_annotation_assist, JudgmentFileType, augment_usage_log
 from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
-from themis.plot import generate_curves, plot_curves, PrecisionCurveFileType, ROCCurveFileType
+from themis.plot import generate_curves, plot_curves, PrecisionCurveFileType, ROCCurveFileType, ATTEMPTED
 from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
     QuestionFrequencyFileType
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
@@ -488,7 +488,7 @@ def plot_handler(args):
         to_csv(filename, fmt(data))
     # Optionally draw plot.
     if args.draw:
-        plot_curves(curves)
+        plot_curves(curves, args.type)
 
 
 def similarity_handler(args):
