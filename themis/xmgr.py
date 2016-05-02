@@ -162,9 +162,9 @@ def corpus_from_trec_files(trec_directory):
         with open(trec_filename) as trec_file:
             try:
                 trec = xmltodict.parse(trec_file)
-            except xml.parsers.expat.ExpatError:
+            except xml.parsers.expat.ExpatError as e:
                 invalid += 1
-                logger.warning("Invalid TREC file %s" % trec_filename)
+                logger.warning("TREC file %s %s" % (trec_filename, e))
             metadata = trec["DOC"]["metadata"]
             corpus = corpus.append({
                 ANSWER_ID: metadata["meta:key:pauTid"],
