@@ -2,6 +2,7 @@
 import glob
 import json
 import os
+import xml
 
 import pandas
 import requests
@@ -135,12 +136,12 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
 
 
-def corpus_from_trec_files(directory):
+def corpus_from_trec_files(trec_directory):
     """
     Construct a corpus out of a directory of .XML TREC files.
 
-    :param directory: directory containing TREC files
-    :type directory: str
+    :param trec_directory: directories containing TREC files
+    :type trec_directory: str
     :return: corpus
     :rtype: pandas.DataFrame
     """
@@ -152,12 +153,18 @@ def corpus_from_trec_files(directory):
             return metadata["meta:key:originalfile"]
 
     corpus = CorpusFileType.create_empty()
-    trec_filenames = glob.glob(os.path.join(directory, "*.xml"))
-    logger.info("%d TREC files" % len(trec_filenames))
+    trec_filenames = glob.glob(os.path.join(trec_directory, "*.xml"))
+    n = len(trec_filenames)
+    logger.info("%d xml files in %s" % (n, trec_directory))
+    invalid = 0
     for trec_filename in trec_filenames:
         logger.debug(trec_filename)
         with open(trec_filename) as trec_file:
-            trec = xmltodict.parse(trec_file)
+            try:
+                trec = xmltodict.parse(trec_file)
+            except xml.parsers.expat.ExpatError:
+                invalid += 1
+                logger.warning("Invalid TREC file %s" % trec_filename)
             metadata = trec["DOC"]["metadata"]
             corpus = corpus.append({
                 ANSWER_ID: metadata["meta:key:pauTid"],
@@ -165,6 +172,8 @@ def corpus_from_trec_files(directory):
                 TITLE: trec["DOC"]["title"],
                 FILENAME: filename(),
                 DOCUMENT_ID: metadata["meta:documentid"]}, ignore_index=True)
+    if invalid:
+        logger.warning("%d of %d xml files invalid (%0.3f%%)" % (invalid, n, 100 * invalid / n))
     logger.info("%d documents and %d PAUs in corpus" % (len(corpus[DOCUMENT_ID].drop_duplicates()), len(corpus)))
     return corpus
 
