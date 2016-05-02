@@ -137,12 +137,14 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
 
 
-def corpus_from_trec_files(trec_directory):
+def corpus_from_trec_files(trec_directory, max_docs):
     """
     Construct a corpus out of a directory of .XML TREC files.
 
     :param trec_directory: directories containing TREC files
     :type trec_directory: str
+    :param max_docs: maximum number of TREC documents to parse, if None, parse them all
+    :type max_docs: int
     :return: corpus
     :rtype: pandas.DataFrame
     """
@@ -161,7 +163,7 @@ def corpus_from_trec_files(trec_directory):
             logger.debug(
                 "Retry replacing %s in '%s', TREC file %s %s" % (invalid_character, lines[lineno], trec_filename, e))
             try:
-                escape = {"<": "&lt;", ">": "&gt;"}[invalid_character]
+                escape = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}[invalid_character]
             except KeyError:
                 logger.warning("Invalid TREC file %s %s" % (trec_filename, e))
                 return None
@@ -178,9 +180,9 @@ def corpus_from_trec_files(trec_directory):
             return metadata["meta:key:originalfile"]
 
     corpus = CorpusFileType.create_empty()
-    trec_filenames = glob.glob(os.path.join(trec_directory, "*.xml"))
+    trec_filenames = sorted(glob.glob(os.path.join(trec_directory, "*.xml")))[:max_docs]
     n = len(trec_filenames)
-    logger.info("%d xml files in %s" % (n, trec_directory))
+    logger.info("Examine %d xml files in %s" % (n, trec_directory))
     invalid = 0
     for i, trec_filename in enumerate(trec_filenames, 1):
         if i % 100 == 0 or i == 1 or i == n:

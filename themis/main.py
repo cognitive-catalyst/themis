@@ -76,6 +76,8 @@ def xmgr_command(subparsers):
     # Get corpus from TREC documents directory.
     xmgr_trec = subparsers.add_parser("trec-corpus", help="extract corpus from TREC files")
     xmgr_trec.add_argument("directory", help="directory containing XML TREC files")
+    xmgr_trec.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
+                           help="maximum number of TREC documents to examine")
     xmgr_trec.set_defaults(func=trec_handler)
     # Download truth from XMGR.
     xmgr_truth = subparsers.add_parser("truth", parents=[xmgr_shared_arguments, output_directory],
@@ -122,7 +124,7 @@ def corpus_handler(args):
 
 
 def trec_handler(args):
-    corpus = corpus_from_trec_files(args.directory)
+    corpus = corpus_from_trec_files(args.directory, args.max_docs)
     print_csv(CorpusFileType.output_format(corpus))
 
 
