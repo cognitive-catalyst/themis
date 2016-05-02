@@ -2,7 +2,6 @@
 import glob
 import json
 import os
-import re
 import xml
 
 import pandas
@@ -147,21 +146,27 @@ def corpus_from_trec_files(trec_directory):
     :rtype: pandas.DataFrame
     """
 
-    # TREC files contain lots of ampersand characters even though this is an invalid XML character, so if a TREC file
-    # doesn't parse try replacing & characters that aren't part of an HTML escape sequence with &amp;.
-    def parse_trec():
-        with open(trec_filename) as trec_file:
-            content = trec_file.read()
+    # TREC files contain unescaped &, <, and > characters even though these are invalid XML.
+    # If a TREC file fails to parse, escape these characters and try again.
+    def parse_trec(trec_filename, content):
+        try:
+            return xmltodict.parse(content)
+        except xml.parsers.expat.ExpatError as e:
+            lines = content.split("\n")
+            lineno = e.lineno - 1
+            offset = e.offset - 1
+            invalid_character = lines[lineno][offset]
+            logger.debug(
+                "Retry replacing %s in '%s', TREC file %s %s" % (invalid_character, lines[lineno], trec_filename, e))
             try:
-                return xmltodict.parse(content)
-            except xml.parsers.expat.ExpatError as e:
-                logger.debug("Retry replacing ampersand TREC file %s %s" % (trec_filename, e))
-                content = re.sub("&(?!\w+;)", "&amp;", content)
-                try:
-                    return xmltodict.parse(content)
-                except xml.parsers.expat.ExpatError:
-                    logger.warning("TREC file %s %s" % (trec_filename, e))
-                    return None
+                escape = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}[invalid_character]
+            except KeyError:
+                raise e
+            lines[lineno] = lines[lineno][:offset] + escape + lines[lineno][offset + 1:]
+            return parse_trec(trec_filename, "\n".join(lines))
+        except Exception as e:
+            logger.warning("Invalid TREC file %s %s" % (trec_filename, e))
+            return None
 
     def filename():
         try:
@@ -178,7 +183,8 @@ def corpus_from_trec_files(trec_directory):
         if i % 100 == 0 or i == 1 or i == n:
             logger.info(percent_complete_message("Get PAU from TREC document", i, n))
         logger.debug(trec_filename)
-        trec = parse_trec()
+        with open(trec_filename) as trec_file:
+            trec = parse_trec(trec_filename, trec_file.read())
         if trec is not None:
             metadata = trec["DOC"]["metadata"]
             corpus = corpus.append({
