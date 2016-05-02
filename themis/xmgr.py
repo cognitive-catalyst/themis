@@ -2,6 +2,7 @@
 import glob
 import json
 import os
+import re
 import xml
 
 import pandas
@@ -150,6 +151,7 @@ def corpus_from_trec_files(trec_directory):
     # If a TREC file fails to parse, escape these characters and try again.
     def parse_trec(trec_filename, content):
         try:
+            content = re.sub("&(?!\w+;)", "&amp;", content)
             return xmltodict.parse(content)
         except xml.parsers.expat.ExpatError as e:
             lines = content.split("\n")
@@ -159,9 +161,10 @@ def corpus_from_trec_files(trec_directory):
             logger.debug(
                 "Retry replacing %s in '%s', TREC file %s %s" % (invalid_character, lines[lineno], trec_filename, e))
             try:
-                escape = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}[invalid_character]
+                escape = {"<": "&lt;", ">": "&gt;"}[invalid_character]
             except KeyError:
-                raise e
+                logger.warning("Invalid TREC file %s %s" % (trec_filename, e))
+                return None
             lines[lineno] = lines[lineno][:offset] + escape + lines[lineno][offset + 1:]
             return parse_trec(trec_filename, "\n".join(lines))
         except Exception as e:
