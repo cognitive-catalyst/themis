@@ -144,10 +144,18 @@ def corpus_from_trec_files(directory):
     :return: corpus
     :rtype: pandas.DataFrame
     """
+
+    def filename():
+        try:
+            return metadata["meta:custom:key:fileName"]
+        except KeyError:
+            return metadata["meta:key:originalfile"]
+
     corpus = CorpusFileType.create_empty()
     trec_filenames = glob.glob(os.path.join(directory, "*.xml"))
     logger.info("%d TREC files" % len(trec_filenames))
     for trec_filename in trec_filenames:
+        logger.debug(trec_filename)
         with open(trec_filename) as trec_file:
             trec = xmltodict.parse(trec_file)
             metadata = trec["DOC"]["metadata"]
@@ -155,7 +163,7 @@ def corpus_from_trec_files(directory):
                 ANSWER_ID: metadata["meta:key:pauTid"],
                 ANSWER: trec["DOC"]["text"],
                 TITLE: trec["DOC"]["title"],
-                FILENAME: metadata["meta:custom:key:fileName"],
+                FILENAME: filename(),
                 DOCUMENT_ID: metadata["meta:documentid"]}, ignore_index=True)
     logger.info("%d documents and %d PAUs in corpus" % (len(corpus[DOCUMENT_ID].drop_duplicates()), len(corpus)))
     return corpus
