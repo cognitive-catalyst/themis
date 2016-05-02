@@ -1,3 +1,4 @@
+xmltodict
 watson_developer_cloud
 solrpy
 numpy

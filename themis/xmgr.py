@@ -1,9 +1,11 @@
 """Utilities to download information from an Watson Experience Manager (XMGR) project"""
+import glob
 import json
 import os
 
 import pandas
 import requests
+import xmltodict
 
 from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID
 from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, percent_complete_message, \
@@ -118,19 +120,45 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
                     corpus.flush()
                     logger.info(percent_complete_message("Get PAUs from document", i, n))
                 paus = xmgr.get_paus_from_document(document_id)
-                for pau in paus:
-                    corpus.write(pau["id"], pau["responseMarkup"], pau["title"], pau["sourceName"], document_id)
                 # The document id and number of PAUs are both integers. Cast them to strings, otherwise pandas will
                 # write them as floats.
+                for pau in paus:
+                    corpus.write(pau["id"], pau["responseMarkup"], pau["title"], pau["sourceName"], str(document_id))
                 downloaded_document_ids.write(str(document_id), str(len(paus)))
     finally:
         downloaded_document_ids.close()
         corpus.close()
     corpus = from_csv(corpus_csv).drop_duplicates(ANSWER_ID)
-    to_csv(corpus_csv, corpus)
+    to_csv(corpus_csv, CorpusFileType.output_format(corpus))
     docs = len(from_csv(document_ids_csv))
     os.remove(document_ids_csv)
     logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
+
+
+def corpus_from_trec_files(directory):
+    """
+    Construct a corpus out of a directory of .XML TREC files.
+
+    :param directory: directory containing TREC files
+    :type directory: str
+    :return: corpus
+    :rtype: pandas.DataFrame
+    """
+    corpus = CorpusFileType.create_empty()
+    trec_filenames = glob.glob(os.path.join(directory, "*.xml"))
+    logger.info("%d TREC files" % len(trec_filenames))
+    for trec_filename in trec_filenames:
+        with open(trec_filename) as trec_file:
+            trec = xmltodict.parse(trec_file)
+            metadata = trec["DOC"]["metadata"]
+            corpus = corpus.append({
+                ANSWER_ID: metadata["meta:key:pauTid"],
+                ANSWER: trec["DOC"]["text"],
+                TITLE: trec["DOC"]["title"],
+                FILENAME: metadata["meta:custom:key:fileName"],
+                DOCUMENT_ID: metadata["meta:documentid"]}, ignore_index=True)
+    logger.info("%d documents and %d PAUs in corpus" % (len(corpus[DOCUMENT_ID].drop_duplicates()), len(corpus)))
+    return corpus
 
 
 def validate_truth_with_corpus(corpus, truth, output_directory):
@@ -313,8 +341,23 @@ class XmgrProject(object):
 
 
 class CorpusFileType(CsvFileType):
+    columns = [ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID]
+
     def __init__(self):
-        super(self.__class__, self).__init__([ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID])
+        super(self.__class__, self).__init__(self.__class__.columns)
+
+    @classmethod
+    def create_empty(cls):
+        return pandas.DataFrame(columns=cls.columns)
+
+    @classmethod
+    def output_format(cls, corpus):
+        corpus = corpus[cls.columns]
+        # Cast integer document IDs to strings so that Pandas does not write them as real numbers.
+        corpus[DOCUMENT_ID] = corpus[DOCUMENT_ID].astype("string")
+        # Sort by document ID first so that answers from the same document are all grouped together.
+        corpus = corpus.sort_values([DOCUMENT_ID, ANSWER_ID]).set_index(ANSWER_ID)
+        return corpus
 
 
 class TruthFileType(CsvFileType):

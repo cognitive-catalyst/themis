@@ -17,11 +17,11 @@ from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_expe
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
     interpret_annotation_assist, JudgmentFileType, augment_usage_log
 from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
-from themis.plot import generate_curves, plot_curves, PrecisionCurveFileType, ROCCurveFileType, ATTEMPTED
+from themis.plot import generate_curves, plot_curves, PrecisionCurveFileType, ROCCurveFileType
 from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
     QuestionFrequencyFileType
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus
+    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus, corpus_from_trec_files
 
 
 def main():
@@ -73,6 +73,10 @@ def xmgr_command(subparsers):
                              help="maximum number of corpus documents to download")
     xmgr_corpus.add_argument("--retries", type=int, help="number of times to retry downloading after an error")
     xmgr_corpus.set_defaults(func=corpus_handler)
+    # Get corpus from TREC documents directory.
+    xmgr_trec = subparsers.add_parser("trec-corpus", help="extract corpus from TREC files")
+    xmgr_trec.add_argument("directory", help="directory containing XML TREC files")
+    xmgr_trec.set_defaults(func=trec_handler)
     # Download truth from XMGR.
     xmgr_truth = subparsers.add_parser("truth", parents=[xmgr_shared_arguments, output_directory],
                                        help="download truth file")
@@ -115,6 +119,11 @@ def corpus_handler(args):
     xmgr = XmgrProject(args.url, args.username, args.password)
     c = DownloadCorpusFromXmgrClosure(xmgr, args.output_directory, args.checkpoint_frequency, args.max_docs)
     retry(c, args.retries)
+
+
+def trec_handler(args):
+    corpus = corpus_from_trec_files(args.directory)
+    print(CorpusFileType.output_format(corpus))
 
 
 def truth_handler(args):
