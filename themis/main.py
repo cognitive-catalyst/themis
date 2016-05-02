@@ -123,7 +123,7 @@ def corpus_handler(args):
 
 def trec_handler(args):
     corpus = corpus_from_trec_files(args.directory)
-    print(CorpusFileType.output_format(corpus))
+    print_csv(CorpusFileType.output_format(corpus))
 
 
 def truth_handler(args):

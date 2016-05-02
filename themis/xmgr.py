@@ -2,6 +2,7 @@
 import glob
 import json
 import os
+import re
 import xml
 
 import pandas
@@ -146,6 +147,22 @@ def corpus_from_trec_files(trec_directory):
     :rtype: pandas.DataFrame
     """
 
+    # TREC files contain lots of ampersand characters even though this is an invalid XML character, so if a TREC file
+    # doesn't parse try replacing & characters that aren't part of an HTML escape sequence with &amp;.
+    def parse_trec():
+        with open(trec_filename) as trec_file:
+            content = trec_file.read()
+            try:
+                return xmltodict.parse(content)
+            except xml.parsers.expat.ExpatError as e:
+                logger.debug("Retry replacing ampersand TREC file %s %s" % (trec_filename, e))
+                content = re.sub("&(?!\w+;)", "&amp;", content)
+                try:
+                    return xmltodict.parse(content)
+                except xml.parsers.expat.ExpatError:
+                    logger.warning("TREC file %s %s" % (trec_filename, e))
+                    return None
+
     def filename():
         try:
             return metadata["meta:custom:key:fileName"]
@@ -161,12 +178,8 @@ def corpus_from_trec_files(trec_directory):
         if i % 100 == 0 or i == 1 or i == n:
             logger.info(percent_complete_message("Get PAU from TREC document", i, n))
         logger.debug(trec_filename)
-        with open(trec_filename) as trec_file:
-            try:
-                trec = xmltodict.parse(trec_file)
-            except xml.parsers.expat.ExpatError as e:
-                invalid += 1
-                logger.warning("TREC file %s %s" % (trec_filename, e))
+        trec = parse_trec()
+        if trec is not None:
             metadata = trec["DOC"]["metadata"]
             corpus = corpus.append({
                 ANSWER_ID: metadata["meta:key:pauTid"],
@@ -174,6 +187,8 @@ def corpus_from_trec_files(trec_directory):
                 TITLE: trec["DOC"]["title"],
                 FILENAME: filename(),
                 DOCUMENT_ID: metadata["meta:documentid"]}, ignore_index=True)
+        else:
+            invalid += 1
     if invalid:
         logger.warning("%d of %d xml files invalid (%0.3f%%)" % (invalid, n, 100 * invalid / n))
     logger.info("%d documents and %d PAUs in corpus" % (len(corpus[DOCUMENT_ID].drop_duplicates()), len(corpus)))
