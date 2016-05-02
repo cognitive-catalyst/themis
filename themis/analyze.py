@@ -100,23 +100,31 @@ def oracle_combination(systems_data, system_names, oracle_name):
     :rtype: pandas.DataFrame
     """
 
-    def log_correct(system, name):
-        n = len(system)
-        m = sum(system[CORRECT])
+    def log_correct(system_data, name):
+        n = len(system_data)
+        m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
 
     systems_data = drop_missing(systems_data)
-    systems = [systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION) for system_name in system_names]
-    for system in systems:
+    # Extract the systems of interest and map confidences to percentile rank.
+    systems = []
+    for system_name in system_names:
+        system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
+        system['Percentile'] = system[CONFIDENCE].rank(pct=True)
         log_correct(system, system[SYSTEM][0])
+        systems.append(system)
+    # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
     oracle = systems[0].loc[questions].copy()
     systems_correct = [system.loc[questions][[CORRECT]] for system in systems]
+    # percentile = max(Percentile column of question list of systems)
+    # oracle[CONFIDENCE] = percentile
     oracle[[CORRECT]] = functools.reduce(lambda m, x: m | x, systems_correct)
     systems_in_purview = [system.loc[questions][[IN_PURVIEW]] for system in systems]
     oracle[[IN_PURVIEW]] = functools.reduce(lambda m, x: m & x, systems_in_purview)
     oracle[SYSTEM] = oracle_name
     oracle[ANSWER] = "CORRECT ANSWER"
+    # oracle.loc[compliment of correct set][CONFIDENCE] = low value()
     log_correct(oracle, oracle_name)
     return oracle.reset_index()
 
