@@ -108,7 +108,7 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     document_ids = document_ids[:max_docs]
     n = len(document_ids)
     downloaded_document_ids = DataFrameCheckpoint(document_ids_csv, [DOCUMENT_ID, "Paus"], checkpoint_frequency)
-    corpus = DataFrameCheckpoint(corpus_csv, [ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID])
+    corpus = DataFrameCheckpoint(corpus_csv, CorpusFileType.columns)
     try:
         if downloaded_document_ids.recovered:
             logger.info("Recovered %d documents from previous run" % len(downloaded_document_ids.recovered))
@@ -157,7 +157,9 @@ def corpus_from_trec_files(trec_directory):
     n = len(trec_filenames)
     logger.info("%d xml files in %s" % (n, trec_directory))
     invalid = 0
-    for trec_filename in trec_filenames:
+    for i, trec_filename in enumerate(trec_filenames, 1):
+        if i % 100 == 0 or i == 1 or i == n:
+            logger.info(percent_complete_message("Get PAU from TREC document", i, n))
         logger.debug(trec_filename)
         with open(trec_filename) as trec_file:
             try:
