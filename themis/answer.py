@@ -3,7 +3,8 @@ import re
 import pandas
 # noinspection PyPackageRequirements
 import solr
-from themis import logger, DataFrameCheckpoint, percent_complete_message, CsvFileType
+from themis import logger, percent_complete_message, CsvFileType
+from themis.checkpoint import DataFrameCheckpoint
 from themis import QUESTION, ANSWER, CONFIDENCE
 
 

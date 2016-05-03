@@ -27,7 +27,7 @@ Download the corpus and the truth files from the Watson Experience Manager (XMGR
 The corpus maps answer IDs to answer text.
 To download it, run the following command.
 
-    themis xmgr corpus XMGR-URL USERNAME PASSWORD
+    themis xmgr download-corpus XMGR-URL USERNAME PASSWORD
 
 The `XMGR-URL` points to an XMGR project instance, e.g. `https://watson.ihost.com/instance/283/predeploy/$150dd167e4e`.
 (Note that these may contain "$" characters that have to be escaped on the command line.)

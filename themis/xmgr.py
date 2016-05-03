@@ -1,17 +1,14 @@
 """Utilities to download information from an Watson Experience Manager (XMGR) project"""
-import glob
 import json
 import os
-import re
-import xml
 
 import pandas
 import requests
-import xmltodict
 
 from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID
-from themis import logger, to_csv, DataFrameCheckpoint, ensure_directory_exists, percent_complete_message, \
+from themis import logger, to_csv, ensure_directory_exists, percent_complete_message, \
     CsvFileType
+from themis.checkpoint import DataFrameCheckpoint
 from themis.question import QAPairFileType
 
 
@@ -135,75 +132,6 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     docs = len(from_csv(document_ids_csv))
     os.remove(document_ids_csv)
     logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
-
-
-def corpus_from_trec_files(trec_directory, max_docs):
-    """
-    Construct a corpus out of a directory of .XML TREC files.
-
-    :param trec_directory: directories containing TREC files
-    :type trec_directory: str
-    :param max_docs: maximum number of TREC documents to parse, if None, parse them all
-    :type max_docs: int
-    :return: corpus
-    :rtype: pandas.DataFrame
-    """
-
-    # TREC files contain unescaped &, <, and > characters even though these are invalid XML.
-    # If a TREC file fails to parse, escape these characters and try again.
-    def parse_trec(trec_filename, content):
-        try:
-            content = re.sub("&(?!\w+;)", "&amp;", content)
-            return xmltodict.parse(content)
-        except xml.parsers.expat.ExpatError as e:
-            lines = content.split("\n")
-            lineno = e.lineno - 1
-            offset = e.offset - 1
-            invalid_character = lines[lineno][offset]
-            logger.debug(
-                "Retry replacing %s in '%s', TREC file %s %s" % (invalid_character, lines[lineno], trec_filename, e))
-            try:
-                escape = {"&": "&amp;", "<": "&lt;", ">": "&gt;"}[invalid_character]
-            except KeyError:
-                logger.warning("Invalid TREC file %s %s" % (trec_filename, e))
-                return None
-            lines[lineno] = lines[lineno][:offset] + escape + lines[lineno][offset + 1:]
-            return parse_trec(trec_filename, "\n".join(lines))
-        except Exception as e:
-            logger.warning("Invalid TREC file %s %s" % (trec_filename, e))
-            return None
-
-    def filename():
-        try:
-            return metadata["meta:custom:key:fileName"]
-        except KeyError:
-            return metadata["meta:key:originalfile"]
-
-    corpus = CorpusFileType.create_empty()
-    trec_filenames = sorted(glob.glob(os.path.join(trec_directory, "*.xml")))[:max_docs]
-    n = len(trec_filenames)
-    logger.info("Examine %d xml files in %s" % (n, trec_directory))
-    invalid = 0
-    for i, trec_filename in enumerate(trec_filenames, 1):
-        if i % 100 == 0 or i == 1 or i == n:
-            logger.info(percent_complete_message("Get PAU from TREC document", i, n))
-        logger.debug(trec_filename)
-        with open(trec_filename) as trec_file:
-            trec = parse_trec(trec_filename, trec_file.read())
-        if trec is not None:
-            metadata = trec["DOC"]["metadata"]
-            corpus = corpus.append({
-                ANSWER_ID: metadata["meta:key:pauTid"],
-                ANSWER: trec["DOC"]["text"],
-                TITLE: trec["DOC"]["title"],
-                FILENAME: filename(),
-                DOCUMENT_ID: metadata["meta:documentid"]}, ignore_index=True)
-        else:
-            invalid += 1
-    if invalid:
-        logger.warning("%d of %d xml files invalid (%0.3f%%)" % (invalid, n, 100 * invalid / n))
-    logger.info("%d documents and %d PAUs in corpus" % (len(corpus[DOCUMENT_ID].drop_duplicates()), len(corpus)))
-    return corpus
 
 
 def validate_truth_with_corpus(corpus, truth, output_directory):

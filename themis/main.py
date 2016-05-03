@@ -9,10 +9,11 @@ import os
 import pandas
 
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
-    retry, __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT
+    __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
     compare_systems, oracle_combination
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
+from themis.checkpoint import retry
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
     interpret_annotation_assist, JudgmentFileType, augment_usage_log
@@ -20,8 +21,9 @@ from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remov
 from themis.plot import generate_curves, plot_curves, PrecisionCurveFileType, ROCCurveFileType
 from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
     QuestionFrequencyFileType
+from themis.trec import corpus_from_trec
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus, corpus_from_trec_files
+    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus
 
 
 def main():
@@ -65,19 +67,21 @@ def xmgr_command(subparsers):
     xmgr_parser = subparsers.add_parser("xmgr", help="download information from XMGR")
     subparsers = xmgr_parser.add_subparsers(description="download information from XMGR")
     # Download corpus from XMGR.
-    xmgr_corpus = subparsers.add_parser("corpus", parents=[xmgr_shared_arguments, output_directory],
-                                        help="download corpus")
-    xmgr_corpus.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=10,
-                             help="flush corpus to checkpoint file after downloading this many documents")
-    xmgr_corpus.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
-                             help="maximum number of corpus documents to download")
-    xmgr_corpus.add_argument("--retries", type=int, help="number of times to retry downloading after an error")
-    xmgr_corpus.set_defaults(func=corpus_handler)
+    xmgr_download = subparsers.add_parser("download-corpus",
+                                          parents=[xmgr_shared_arguments, output_directory], help="download corpus")
+    xmgr_download.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
+                               help="maximum number of corpus documents to download")
+    xmgr_download.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=10,
+                               help="flush corpus to checkpoint file after downloading this many documents")
+    xmgr_download.add_argument("--retries", type=int, help="number of times to retry downloading after an error")
+    xmgr_download.set_defaults(func=download_handler)
     # Get corpus from TREC documents directory.
-    xmgr_trec = subparsers.add_parser("trec-corpus", help="extract corpus from TREC files")
+    xmgr_trec = subparsers.add_parser("trec-corpus", parents=[output_directory], help="extract corpus from TREC files")
     xmgr_trec.add_argument("directory", help="directory containing XML TREC files")
     xmgr_trec.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
                            help="maximum number of TREC documents to examine")
+    xmgr_trec.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=1000,
+                           help="flush corpus to checkpoint file after parsing this many TREC files")
     xmgr_trec.set_defaults(func=trec_handler)
     # Download truth from XMGR.
     xmgr_truth = subparsers.add_parser("truth", parents=[xmgr_shared_arguments, output_directory],
@@ -117,15 +121,18 @@ def xmgr_command(subparsers):
     xmgr_examine.set_defaults(func=examine_handler)
 
 
-def corpus_handler(args):
+def download_handler(args):
     xmgr = XmgrProject(args.url, args.username, args.password)
-    c = DownloadCorpusFromXmgrClosure(xmgr, args.output_directory, args.checkpoint_frequency, args.max_docs)
-    retry(c, args.retries)
+    closure = DownloadCorpusFromXmgrClosure(xmgr, args.output_directory, args.checkpoint_frequency, args.max_docs)
+    retry(closure, args.retries)
 
 
 def trec_handler(args):
-    corpus = corpus_from_trec_files(args.directory, args.max_docs)
-    print_csv(CorpusFileType.output_format(corpus))
+    checkpoint_filename = os.path.join(args.output_directory, "corpus.trec.temp.csv")
+    corpus = corpus_from_trec(checkpoint_filename, args.directory, args.checkpoint_frequency, args.max_docs)
+    to_csv(os.path.join(args.output_directory, "corpus.csv"), CorpusFileType.output_format(corpus))
+    logger.info("%d documents and %d PAUs in corpus" % (len(corpus[DOCUMENT_ID].drop_duplicates()), len(corpus)))
+    os.remove(checkpoint_filename)
 
 
 def truth_handler(args):
