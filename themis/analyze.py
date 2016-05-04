@@ -129,6 +129,30 @@ def oracle_combination(systems_data, system_names, oracle_name):
     return oracle.reset_index()
 
 
+def filter_judged_answers(systems_data, correct, system_names):
+    """
+    Filter out just the correct or incorrect in-purview answers.
+
+    :param systems_data: questions, answers, and judgments across systems
+    :type systems_data: list of pandas.DataFrame
+    :param correct: filter correct or incorrect answers?
+    :type correct: bool
+    :param system_names: systems to filter to, if None show all systems
+    :type system_names: list of str
+    :return: set of in-purview questions with answers judged either correct or incorrect
+    :rtype: pandas.DataFrame
+    """
+    systems_data = pandas.concat(systems_data).dropna()
+    if system_names is not None:
+        systems_data = systems_data[systems_data[SYSTEM].isin(system_names)]
+    filtered = systems_data[(systems_data[IN_PURVIEW] == True) & (systems_data[CORRECT] == correct)]
+    n = len(systems_data)
+    m = len(filtered)
+    logger.info("%d in-purview %s answers out of %d (%0.3f%%)" %
+                (m, {True: "correct", False: "incorrect"}[correct], n, 100 * m / n))
+    return filtered
+
+
 def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies, remove_newlines):
     """
     Collate system answer confidences and annotator judgments by question/answer pair.
