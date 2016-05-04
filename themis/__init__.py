@@ -7,7 +7,7 @@ import sys
 
 import pandas
 
-__version__= "2.3.0"
+__version__= "2.3.1"
 
 logger = logging.getLogger(__name__)
 
