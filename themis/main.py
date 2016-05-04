@@ -11,7 +11,7 @@ import pandas
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
-    compare_systems, oracle_combination
+    compare_systems, oracle_combination, filter_judged_answers
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.checkpoint import retry
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
@@ -422,6 +422,12 @@ def augment_handler(args):
 
 
 def analyze_command(parser, subparsers):
+    filter_arguments = argparse.ArgumentParser(add_help=False)
+    filter_arguments.add_argument("collated", nargs="+", type=CollatedFileType(),
+                                  help="combined system answers and judgments created by 'analyze collate'")
+    filter_arguments.add_argument("--system-names", metavar="system", nargs="+",
+                                  help="name of systems to view, by default view them all")
+
     analyze_parser = subparsers.add_parser("analyze", help="analyze results")
 
     subparsers = analyze_parser.add_subparsers(description="analyze results")
@@ -445,6 +451,12 @@ def analyze_command(parser, subparsers):
     plot_parser.add_argument("--output", default=".", help="output directory")
     plot_parser.add_argument("--draw", action="store_true", help="draw plots")
     plot_parser.set_defaults(func=plot_handler)
+    # Print in-purview correct answers.
+    correct_parser = subparsers.add_parser("correct", parents=[filter_arguments], help="in-purview correct answers")
+    correct_parser.set_defaults(func=correct_handler)
+    # Print in-purview incorrect answers.
+    incorrect_parser = subparsers.add_parser("incorrect", parents=[filter_arguments], help="in-purview correct answers")
+    incorrect_parser.set_defaults(func=incorrect_handler)
     # Similarity of system answers.
     similarity_parser = subparsers.add_parser("similarity", help="measure similarity of different systems' answers")
     similarity_parser.add_argument("collated", type=CollatedFileType(),
@@ -497,6 +509,16 @@ def answer_labels(parser, args):
         parser.print_usage()
         parser.error("There must be a name for each plot.")
     return zip(args.labels, args.answers)
+
+
+def correct_handler(args):
+    correct = filter_judged_answers(args.collated, True, args.system_names)
+    print_csv(CollatedFileType.output_format(correct))
+
+
+def incorrect_handler(args):
+    incorrect = filter_judged_answers(args.collated, False, args.system_names)
+    print_csv(CollatedFileType.output_format(incorrect))
 
 
 def plot_handler(args):
