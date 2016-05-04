@@ -41,6 +41,8 @@ def main():
     judge_command(subparsers)
     # Analyze results.
     analyze_command(parser, subparsers)
+    # Various utilties.
+    util_command(subparsers)
     # Print the version number.
     version_command(subparsers)
 
@@ -523,6 +525,31 @@ def oracle_handler(args):
     oracle_name = "%s Oracle" % "+".join(args.system_names)
     oracle = oracle_combination(args.collated, args.system_names, oracle_name)
     print_csv(CollatedFileType.output_format(oracle))
+
+
+def util_command(subparsers):
+    util_parser = subparsers.add_parser("util", help="various utilities")
+    subparsers = util_parser.add_subparsers(description="various utilities")
+    rows = subparsers.add_parser("rows", help="get the number of rows in a CSV file")
+    rows.add_argument("file", type=CsvFileType(), help="CSV file")
+    rows.set_defaults(func=rows_handler)
+    drop_null = subparsers.add_parser("drop-null", help="drop rows that contain null values from a CSV file")
+    drop_null.add_argument("file", type=CsvFileType(), help="CSV file")
+    drop_null.set_defaults(func=drop_null_handler)
+
+
+def rows_handler(args):
+    n = len(args.file)
+    m = sum(args.file.count(axis="columns") < len(args.file.columns))
+    print("%d rows, %d with null values (%0.3f%%)" % (n, m, 100.0 * m / n))
+
+
+def drop_null_handler(args):
+    n = len(args.file)
+    non_null = args.file.dropna()
+    m = n - len(non_null)
+    logger.info("Dropped %d rows with null values from %d rows (%0.3f%%)" % (m, n, 100.0 * m / n))
+    print_csv(non_null, index=False)
 
 
 def version_command(subparsers):
