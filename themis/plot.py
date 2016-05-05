@@ -35,7 +35,8 @@ def generate_curves(curve_type, collated):
         raise ValueError("Invalid curve type %s" % curve_type)
     curves = {}
     for label, data in collated.groupby(SYSTEM):
-        curves[label] = curve(data)
+        curves[label] = {"precision": PrecisionCurveFileType,
+                         "roc": ROCCurveFileType}[curve_type].output_format(curve(data))
     return curves
 
 

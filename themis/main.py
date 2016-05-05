@@ -18,7 +18,7 @@ from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_expe
 from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
     interpret_annotation_assist, JudgmentFileType, augment_usage_log
 from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
-from themis.plot import generate_curves, plot_curves, PrecisionCurveFileType, ROCCurveFileType
+from themis.plot import generate_curves, plot_curves
 from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
     QuestionFrequencyFileType
 from themis.trec import corpus_from_trec
@@ -524,10 +524,9 @@ def incorrect_handler(args):
 def plot_handler(args):
     curves = generate_curves(args.type, args.collated)
     # Write curves data.
-    for label, data in curves.items():
+    for label, curve in curves.items():
         filename = os.path.join(args.output, "%s.%s.csv" % (args.type, label))
-        fmt = {"precision": PrecisionCurveFileType.output_format, "roc": ROCCurveFileType.output_format}[args.type]
-        to_csv(filename, fmt(data))
+        to_csv(filename, curve)
     # Optionally draw plot.
     if args.draw:
         plot_curves(curves, args.type)
