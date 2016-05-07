@@ -41,7 +41,7 @@ def main():
     judge_command(subparsers)
     # Analyze results.
     analyze_command(parser, subparsers)
-    # Various utilties.
+    # Various utilities.
     util_command(subparsers)
     # Print the version number.
     version_command(subparsers)

@@ -75,7 +75,8 @@ def interpret_annotation_assist(annotation_assist, judgment_threshold):
     Convert the file produced by the Annotation Assist tool into a set of judgments that can be used by Themis.
 
     Convert the in purview column from an integer value to a boolean. Convert the annotation score column to a boolean
-    correct column by applying a threshold. Drop any Q&A pairs that have multiple annotations.
+    correct column by applying a threshold. An answer can only be correct if the question is in purview. Drop any Q&A
+    pairs that have multiple annotations.
 
     :param annotation_assist: Annotation Assist judgments
     :type annotation_assist: pandas.DataFrame
@@ -91,7 +92,8 @@ def interpret_annotation_assist(annotation_assist, judgment_threshold):
             "Dropping %d Q&A pairs with multiple annotations (%0.3f%%)" % (n, 100.0 * n / len(annotation_assist)))
         annotation_assist.drop_duplicates((QUESTION, ANSWER), keep=False, inplace=True)
     annotation_assist[IN_PURVIEW] = annotation_assist[IN_PURVIEW].astype("bool")
-    annotation_assist[CORRECT] = annotation_assist[ANNOTATION_SCORE] >= judgment_threshold
+    annotation_assist[CORRECT] = \
+        annotation_assist[IN_PURVIEW] & (annotation_assist[ANNOTATION_SCORE] >= judgment_threshold)
     logger.info("Processed %d judgments" % len(annotation_assist))
     return annotation_assist.drop(ANNOTATION_SCORE, axis="columns")
 

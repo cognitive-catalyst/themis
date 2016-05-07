@@ -105,26 +105,37 @@ def oracle_combination(systems_data, system_names, oracle_name):
         m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
 
+    percentile = "Percentile"
     systems_data = drop_missing(systems_data)
     # Extract the systems of interest and map confidences to percentile rank.
     systems = []
     for system_name in system_names:
         system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
-        system['Percentile'] = system[CONFIDENCE].rank(pct=True)
-        log_correct(system, system[SYSTEM][0])
+        system[percentile] = system[CONFIDENCE].rank(pct=True)
+        log_correct(system, system_name)
         systems.append(system)
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
+    # Start the oracle with a copy of one of the systems.
     oracle = systems[0].loc[questions].copy()
-    systems_correct = [system.loc[questions][[CORRECT]] for system in systems]
-    # percentile = max(Percentile column of question list of systems)
-    # oracle[CONFIDENCE] = percentile
-    oracle[[CORRECT]] = functools.reduce(lambda m, x: m | x, systems_correct)
+    del oracle[percentile]
+    oracle[SYSTEM] = oracle_name
+    # An oracle question is in purview if all systems mark it as in purview. There should be consensus on this.
     systems_in_purview = [system.loc[questions][[IN_PURVIEW]] for system in systems]
     oracle[[IN_PURVIEW]] = functools.reduce(lambda m, x: m & x, systems_in_purview)
-    oracle[SYSTEM] = oracle_name
-    oracle[ANSWER] = "CORRECT ANSWER"
-    # oracle.loc[compliment of correct set][CONFIDENCE] = low value()
+    # An oracle question is correct if any system gets it right.
+    systems_correct = [system.loc[questions][[CORRECT]] for system in systems]
+    oracle[[CORRECT]] = functools.reduce(lambda m, x: m | x, systems_correct)
+    # If the oracle answer is correct, use the highest confidence.
+    confidences = [system[[percentile]].rename(columns={percentile: system[SYSTEM][0]}) for system in systems]
+    system_confidences = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True),
+                                          confidences)
+    correct = oracle[CORRECT].astype("bool")
+    oracle.loc[correct, ANSWER] = "CORRECT ANSWER"
+    oracle.loc[correct, CONFIDENCE] = system_confidences[correct].max(axis=1)
+    # If the question is out of purview or the answer is incorrect, use the lowest confidence.
+    oracle.loc[~correct, ANSWER] = "INCORRECT ANSWER"
+    oracle.loc[~correct, CONFIDENCE] = system_confidences[~correct].min(axis=1)
     log_correct(oracle, oracle_name)
     return oracle.reset_index()
 
