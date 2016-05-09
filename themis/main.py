@@ -11,7 +11,7 @@ import pandas
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
-    compare_systems, oracle_combination, filter_judged_answers
+    compare_systems, oracle_combination, filter_judged_answers, corpus_statistics
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.checkpoint import retry
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
@@ -479,6 +479,12 @@ def analyze_command(parser, subparsers):
                                help="combined system answers and judgments created by 'analyze collate'")
     oracle_parser.add_argument("system_names", metavar="system", nargs="+", help="name of systems to combine")
     oracle_parser.set_defaults(func=oracle_handler)
+    # Corpus statistics.
+    corpus_parser = subparsers.add_parser("corpus", help="corpus statistics")
+    corpus_parser.add_argument("corpus", type=CorpusFileType(),
+                               help="corpus file created by the 'download corpus' command")
+    corpus_parser.add_argument("--histogram", help="token frequency per answer histogram")
+    corpus_parser.set_defaults(func=analyze_corpus_handler)
 
 
 # noinspection PyTypeChecker
@@ -546,6 +552,14 @@ def oracle_handler(args):
     oracle_name = "%s Oracle" % "+".join(args.system_names)
     oracle = oracle_combination(args.collated, args.system_names, oracle_name)
     print_csv(CollatedFileType.output_format(oracle))
+
+
+def analyze_corpus_handler(args):
+    answers, tokens, histogram = corpus_statistics(args.corpus)
+    print("%d answers, %d tokens, average %0.3f tokens per answer" % (answers, tokens, tokens / float(answers)))
+    if args.histogram:
+        r = pandas.DataFrame(list(histogram.items()), columns=("Tokens", "Count")).set_index("Tokens").sort_index()
+        to_csv(args.histogram, r)
 
 
 def util_command(subparsers):

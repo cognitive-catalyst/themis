@@ -1,3 +1,4 @@
+nltk
 beautifulsoup4
 watson_developer_cloud
 solrpy
