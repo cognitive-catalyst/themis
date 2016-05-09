@@ -9,7 +9,7 @@ import os
 import pandas
 
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
-    __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID
+    __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID, ensure_directory_exists
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
     compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
@@ -539,6 +539,7 @@ def incorrect_handler(args):
 def plot_handler(args):
     curves = generate_curves(args.type, args.collated)
     # Write curves data.
+    ensure_directory_exists(args.output)
     for label, curve in curves.items():
         filename = os.path.join(args.output, "%s.%s.csv" % (args.type, label))
         to_csv(filename, curve)
