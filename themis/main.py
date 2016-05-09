@@ -11,7 +11,7 @@ import pandas
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
-    compare_systems, oracle_combination, filter_judged_answers, corpus_statistics
+    compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.checkpoint import retry
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
@@ -485,6 +485,14 @@ def analyze_command(parser, subparsers):
                                help="corpus file created by the 'download corpus' command")
     corpus_parser.add_argument("--histogram", help="token frequency per answer histogram")
     corpus_parser.set_defaults(func=analyze_corpus_handler)
+    # Truth statistics.
+    truth_parser = subparsers.add_parser("truth", help="truth statistics")
+    truth_parser.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
+    truth_parser.add_argument("--histogram", help="answers per question histogram")
+    truth_parser.add_argument("--corpus", type=CorpusFileType(),
+                              help="corpus file created by the 'download corpus' command, " +
+                                   "used to add answer text to the histogram")
+    truth_parser.set_defaults(func=HandlerClosure(analyze_truth_handler, parser))
 
 
 # noinspection PyTypeChecker
@@ -560,6 +568,22 @@ def analyze_corpus_handler(args):
     if args.histogram:
         r = pandas.DataFrame(list(histogram.items()), columns=("Tokens", "Count")).set_index("Tokens").sort_index()
         to_csv(args.histogram, r)
+
+
+def analyze_truth_handler(parser, args):
+    if args.histogram is None and args.corpus is not None:
+        parser.print_usage()
+        parser.error("The corpus is only used when drawing a histogram.")
+    pairs, questions, answers, question_histogram = truth_statistics(args.truth)
+    print("%d training pairs, %d unique questions, %d unique answers, average %0.3f questions per answer" %
+          (pairs, questions, answers, questions / float(answers)))
+    if args.histogram:
+        if args.corpus is not None:
+            question_histogram = pandas.merge(question_histogram, args.corpus[[ANSWER_ID, ANSWER]].set_index(ANSWER_ID),
+                                              left_index=True, right_index=True)
+            question_histogram = question_histogram[[ANSWER, QUESTION]]
+        to_csv(args.histogram,
+               question_histogram.sort_values(QUESTION, ascending=False).rename(columns={QUESTION: "Questions"}))
 
 
 def util_command(subparsers):
