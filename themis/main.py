@@ -455,7 +455,8 @@ def analyze_command(parser, subparsers):
     correct_parser = subparsers.add_parser("correct", parents=[filter_arguments], help="in-purview correct answers")
     correct_parser.set_defaults(func=correct_handler)
     # Print in-purview incorrect answers.
-    incorrect_parser = subparsers.add_parser("incorrect", parents=[filter_arguments], help="in-purview correct answers")
+    incorrect_parser = subparsers.add_parser("incorrect", parents=[filter_arguments],
+                                             help="in-purview incorrect answers")
     incorrect_parser.set_defaults(func=incorrect_handler)
     # Similarity of system answers.
     similarity_parser = subparsers.add_parser("similarity", help="measure similarity of different systems' answers")
