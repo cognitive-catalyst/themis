@@ -6,8 +6,7 @@ import pandas
 import requests
 
 from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID
-from themis import logger, to_csv, ensure_directory_exists, percent_complete_message, \
-    CsvFileType
+from themis import logger, to_csv, ensure_directory_exists, percent_complete_message, CsvFileType
 from themis.checkpoint import DataFrameCheckpoint
 from themis.question import QAPairFileType
 
