@@ -301,7 +301,9 @@ class XmgrProject(object):
             # When it handles an invalid URL, XMGR returns HTTP status 200 with text on a web page describing the
             # error. This web text cannot be parsed as JSON, causing a confusing ValueError to be thrown. Catch this
             # case and raise a more sensible exception.
-            if r.status_code == 200 and "The page you were looking for could not be found." in r.text:
+            if r.status_code == 200 and \
+                    ("The page you were looking for could not be found." in r.text or
+                             "You do not have access to this page." in r.text):
                 raise ValueError("Invalid URL %s" % url)
             else:
                 raise e
