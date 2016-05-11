@@ -119,6 +119,28 @@ def compare_systems(systems_data, x, y, comparison_type):
     return d.set_index(QUESTION)
 
 
+def in_purview_disagreement(systems_data):
+    """
+    Return collated data where in-purview judgments are not unanimous for a question.
+
+    These questions' purview should be rejudged to make them consistent.
+
+    :param systems_data: collated results for all systems
+    :type systems_data: pandas.DataFrame
+    :return: subset of collated data where the purview judgments are not unanimous for a question
+    :rtype: pandas.DataFrame
+    """
+    question_groups = systems_data[[QUESTION, IN_PURVIEW]].groupby(QUESTION)
+    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) == 2).index
+    purview_disagreement = systems_data.loc[index]
+    m = len(purview_disagreement[QUESTION].drop_duplicates())
+    if m:
+        n = len(systems_data[QUESTION].drop_duplicates())
+        logger.warning("%d out of %d questions have non-unanimous in-purview judgments (%0.3f%%)"
+                       % (m, n, 100.0 * m / n))
+    return purview_disagreement
+
+
 def oracle_combination(systems_data, system_names, oracle_name):
     """
     Combine results from multiple systems into a single oracle system. The oracle system gets a question correct if any
