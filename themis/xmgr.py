@@ -181,8 +181,8 @@ def validate_answers_with_corpus(corpus, qa_pairs, output_directory):
     if any(missing_answers):
         ensure_directory_exists(output_directory)
         missing_answer_qa_pairs = qa_pairs[missing_answers]
-        n = len(qa_pairs)
-        m = len(missing_answer_qa_pairs)
+        n = len(qa_pairs.drop_duplicates(ANSWER))
+        m = len(missing_answer_qa_pairs.drop_duplicates(ANSWER))
         print("%d usage log answers of %d (%0.3f%%) not in the corpus" % (m, n, 100.0 * m / n))
         answers_in_corpus_csv = os.path.join(output_directory, "answers.in-corpus.csv")
         answers_not_in_corpus_csv = os.path.join(output_directory, "answers.not-in-corpus.csv")
