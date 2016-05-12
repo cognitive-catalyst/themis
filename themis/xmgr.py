@@ -5,10 +5,11 @@ import os
 import pandas
 import requests
 
-from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID
+from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID, CONFIDENCE, \
+    FREQUENCY
 from themis import logger, to_csv, ensure_directory_exists, percent_complete_message, CsvFileType
 from themis.checkpoint import DataFrameCheckpoint
-from themis.question import QAPairFileType
+from themis.question import QAPairFileType, USER_EXPERIENCE, DATE_TIME
 
 
 def download_truth_from_xmgr(xmgr, output_directory):
@@ -133,6 +134,64 @@ def download_corpus_from_xmgr(xmgr, output_directory, checkpoint_frequency, max_
     logger.info("%d documents and %d PAUs in corpus" % (docs, len(corpus)))
 
 
+def augment_corpus_answers(corpus, qa_pairs):
+    """
+    Create a set of answers culled from both the corpus and the usage logs.
+
+    These answers can be used to populate a Solr database.
+
+    You would expect all the answers returned by the system to be in the corpus, but this is not the case. The
+    'themis xmgr validate-answers' command shows which answers are missing from the corpus.
+
+    :param corpus: answer corpus
+    :type corpus: pandas.DataFrame
+    :param qa_pairs: question answer pairs from usage logs
+    :type qa_pairs: pandas.DataFrame
+    :return: comprehensive set of answers
+    :rtype: pandas.DataFrame
+    """
+    qa_pairs = qa_pairs.drop([QUESTION, CONFIDENCE, USER_EXPERIENCE, FREQUENCY, DATE_TIME], axis="columns")
+    # The corpus may contain multiple PAUs with the same text but different titles.
+    answer_set = pandas.merge(corpus, qa_pairs, on=ANSWER, how="outer").drop_duplicates([ANSWER, TITLE])
+    n = len(answer_set)
+    m = n - len(corpus)
+    if m:
+        logger.info("Added %d unique answers (%0.3f%%)" % (m, 100.0 * m / n))
+    return answer_set
+
+
+def augment_corpus_truth(xmgr, corpus, truth):
+    """
+    Find answer IDs referenced in the truth file that are missing from the corpus, download them from XMGR, then add
+    them to the corpus.
+
+    :param xmgr: connection to an XMGR project REST API
+    :type xmgr: XmgrProject
+    :param corpus: answer corpus
+    :type corpus: pandas.DataFrame
+    :param truth:  truth downloaded from xmgr
+    :type truth: pandas.DataFrame
+    :return: augmented answer corpus
+    :rtype: pandas.DataFrame
+    """
+    n = len(corpus)
+    missing_pau_ids = truth[missing_truth_in_corpus(corpus, truth)][[ANSWER_ID]].drop_duplicates()
+    logger.info("%d answer IDs referenced in truth missing from corpus" % len(missing_pau_ids))
+    truth_filename = os.path.basename(truth.filename)
+    for missing_pau_id in missing_pau_ids[ANSWER_ID]:
+        for pau in xmgr.get_paus(missing_pau_id):
+            corpus = corpus.append({
+                ANSWER_ID: pau["id"],
+                ANSWER: pau["responseMarkup"],
+                TITLE: pau["title"],
+                FILENAME: pau["sourceName"],
+                DOCUMENT_ID: truth_filename}, ignore_index=True)
+    m = len(corpus) - n
+    if m:
+        logger.info("Added %d unique answers (%0.3f%%)" % (m, 100.0 * m / n))
+    return corpus
+
+
 def validate_truth_with_corpus(corpus, truth, output_directory):
     """
     Verify that all the answer IDs in the truth appear in the corpus.
@@ -147,7 +206,7 @@ def validate_truth_with_corpus(corpus, truth, output_directory):
     :param output_directory: directory in which to create files
     :type output_directory: str
     """
-    missing_answers = ~truth[ANSWER_ID].isin(corpus[ANSWER_ID])
+    missing_answers = missing_truth_in_corpus(corpus, truth)
     if any(missing_answers):
         ensure_directory_exists(output_directory)
         missing_truth_answers = truth[missing_answers]
@@ -161,6 +220,10 @@ def validate_truth_with_corpus(corpus, truth, output_directory):
         to_csv(truth_not_in_corpus_csv, TruthFileType.output_format(missing_truth_answers))
     else:
         print("All truth answer ids are in the corpus.")
+
+
+def missing_truth_in_corpus(corpus, truth):
+    return ~truth[ANSWER_ID].isin(corpus[ANSWER_ID])
 
 
 def validate_answers_with_corpus(corpus, qa_pairs, output_directory):

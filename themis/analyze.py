@@ -25,6 +25,9 @@ def corpus_statistics(corpus):
     for frequency, count in token_frequency.items():
         histogram[frequency] = histogram.get(frequency, 0) + count
     tokens = sum(token_frequency.keys())
+    n = sum(corpus.duplicated(ANSWER_ID))
+    if n:
+        logger.warning("%d duplicated answer IDs (%0.3f%%)" % (n, 100.0 * n / answers))
     return answers, tokens, histogram
 
 

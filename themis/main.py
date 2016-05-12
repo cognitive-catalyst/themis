@@ -24,7 +24,8 @@ from themis.question import QAPairFileType, UsageLogFileType, extract_question_a
     QuestionFrequencyFileType, DATE_TIME
 from themis.trec import corpus_from_trec
 from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus
+    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus, augment_corpus_answers, \
+    augment_corpus_truth
 
 
 def main():
@@ -99,6 +100,17 @@ def xmgr_command(subparsers):
     xmgr_pau = subparsers.add_parser("pau", parents=[xmgr_shared_arguments], help="download an individual PAU")
     xmgr_pau.add_argument("pau", help="PAU id")
     xmgr_pau.set_defaults(func=pau_handler)
+    # Augment corpus with answers from usage logs.
+    augment_answers = subparsers.add_parser("augment-answers", help="augment corpus with answers from usage logs")
+    augment_answers.add_argument("corpus", type=CorpusFileType(),
+                                 help="corpus file created by the 'download-corpus' or 'trec-corpus' command")
+    augment_answers.add_argument("qa_pairs", metavar="qa-pairs", type=QAPairFileType(),
+                                 help="question/answer pairs produced by the 'question extract' command")
+    augment_answers.set_defaults(func=augment_answers_handler)
+    # Augment corpus with answer IDs pulled from truth.
+    augment_truth = subparsers.add_parser("augment-truth", parents=[xmgr_shared_arguments, verify_arguments],
+                                          help="augment corpus with answers from usage logs")
+    augment_truth.set_defaults(func=augment_truth_handler)
     # Filter corpus.
     xmgr_filter = subparsers.add_parser("filter", help="fix up corpus")
     xmgr_filter.add_argument("corpus", type=CorpusFileType(), help="file downloaded by 'xmgr corpus'")
@@ -151,6 +163,17 @@ def pau_handler(args):
 def document_handler(args):
     xmgr = XmgrProject(args.url, args.username, args.password)
     print(", ".join(xmgr.get_pau_ids_in_document(args.document)))
+
+
+def augment_answers_handler(args):
+    augmented_corpus = augment_corpus_answers(args.corpus, args.qa_pairs)
+    print_csv(CorpusFileType.output_format(augmented_corpus))
+
+
+def augment_truth_handler(args):
+    xmgr = XmgrProject(args.url, args.username, args.password)
+    augmented_corpus = augment_corpus_truth(xmgr, args.corpus, args.truth)
+    print_csv(CorpusFileType.output_format(augmented_corpus))
 
 
 def filter_corpus_handler(args):
@@ -281,7 +304,8 @@ def answer_command(subparsers):
     nlc_use = nlc_subparsers.add_parser("use", parents=[nlc_shared_arguments, qa_shared_arguments, checkpoint_argument],
                                         help="use NLC model")
     nlc_use.add_argument("classifier", help="classifier id")
-    nlc_use.add_argument("corpus", type=CorpusFileType(), help="corpus file created by the 'download corpus' command")
+    nlc_use.add_argument("corpus", type=CorpusFileType(),
+                         help="corpus file created by the 'download-corpus' or 'trec-corpus' command")
     nlc_use.set_defaults(func=nlc_use_handler)
     # List all NLC models.
     nlc_list = nlc_subparsers.add_parser("list", parents=[nlc_shared_arguments], help="list NLC models")
