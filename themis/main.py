@@ -110,6 +110,8 @@ def xmgr_command(subparsers):
     # Augment corpus with answer IDs pulled from truth.
     augment_truth = subparsers.add_parser("augment-truth", parents=[xmgr_shared_arguments, verify_arguments],
                                           help="augment corpus with answers from usage logs")
+    augment_truth.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=10,
+                               help="flush to checkpoint file after downloading this many answers")
     augment_truth.set_defaults(func=augment_truth_handler)
     # Filter corpus.
     xmgr_filter = subparsers.add_parser("filter", help="fix up corpus")
@@ -172,7 +174,7 @@ def augment_answers_handler(args):
 
 def augment_truth_handler(args):
     xmgr = XmgrProject(args.url, args.username, args.password)
-    augmented_corpus = augment_corpus_truth(xmgr, args.corpus, args.truth)
+    augmented_corpus = augment_corpus_truth(xmgr, args.corpus, args.truth, args.checkpoint_frequency)
     print_csv(CorpusFileType.output_format(augmented_corpus))
 
 

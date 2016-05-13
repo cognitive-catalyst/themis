@@ -70,9 +70,6 @@ class TrecFileCheckpoint(DataFrameCheckpoint):
                                              [TrecFileCheckpoint.TREC_FILENAME] + CorpusFileType.columns,
                                              interval)
 
-    def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, self.output_file.name)
-
     def write(self, trec_filename, trec):
         if trec is not None:
             super(self.__class__, self).write(trec_filename,

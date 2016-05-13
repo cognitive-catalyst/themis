@@ -10,6 +10,23 @@ from themis import logger, percent_complete_message
 
 
 def get_items(item_type, names, checkpoint, get_item, write_frequency):
+    """
+    Given a list of item names and a checkpoint, this function recovers any previously checkpointed items, then gets
+    the remaining items and writes them to a checkpoint.
+
+    :param item_type: name of item type for use in logging
+    :type item_type: str
+    :param names: list of item names
+    :type names: list
+    :param checkpoint: checkpoint to periodically write items to
+    :type checkpoint: DataFrameCheckpoint
+    :param get_item: function that returns an item given a name
+    :type get_item: func
+    :param write_frequency: how often to log a process message
+    :type write_frequency: int
+    :return: the checkpoint
+    :rtype: DataFrameCheckpoint
+    """
     recovered = checkpoint.recovered
     if recovered:
         logger.info("Recovered %d %s from previous run" % (len(recovered), item_type))
@@ -43,6 +60,13 @@ class DataFrameCheckpoint(object):
         self.columns = columns
         self.buffer = pandas.DataFrame(columns=self.columns)
         self.interval = interval
+
+    def __repr__(self):
+        return "%s (%s): %s, %d items in buffer" % \
+               (self.__class__.__name__, self.filename(), ", ".join(self.columns), len(self.buffer))
+
+    def filename(self):
+        return self.output_file.name
 
     def write(self, *values):
         self.buffer = self.buffer.append(dict(zip(self.buffer.columns, values)), ignore_index=True)

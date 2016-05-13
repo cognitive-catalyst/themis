@@ -8,7 +8,7 @@ import requests
 from themis import QUESTION, ANSWER_ID, ANSWER, TITLE, FILENAME, QUESTION_ID, from_csv, DOCUMENT_ID, CONFIDENCE, \
     FREQUENCY
 from themis import logger, to_csv, ensure_directory_exists, percent_complete_message, CsvFileType
-from themis.checkpoint import DataFrameCheckpoint
+from themis.checkpoint import DataFrameCheckpoint, get_items
 from themis.question import QAPairFileType, USER_EXPERIENCE, DATE_TIME
 
 
@@ -160,10 +160,30 @@ def augment_corpus_answers(corpus, qa_pairs):
     return answer_set
 
 
-def augment_corpus_truth(xmgr, corpus, truth):
+class PauCheckpoint(DataFrameCheckpoint):
+    """
+    A checkpoint that keeps track of PAUs, indexed by PAU Id.
+    """
+
+    def __init__(self, filename, interval):
+        self.invalid = 0
+        super(self.__class__, self).__init__(filename, [ANSWER_ID, ANSWER, TITLE, FILENAME], interval)
+
+    def write(self, answer_id, pau):
+        if pau is not None:
+            super(self.__class__, self).write(answer_id, pau[ANSWER], pau[TITLE], pau[FILENAME])
+        else:
+            self.invalid += 1
+
+
+def augment_corpus_truth(xmgr, corpus, truth, checkpoint_frequency):
     """
     Find answer IDs referenced in the truth file that are missing from the corpus, download them from XMGR, then add
     them to the corpus.
+
+    Intermediary results are periodically written to an augment.temp.csv file in the current directory so that
+    downloading can resume from where it left off if it fails in the middle. The augment.temp.csv file is deleted upon
+    completion of downloading.
 
     :param xmgr: connection to an XMGR project REST API
     :type xmgr: XmgrProject
@@ -171,24 +191,37 @@ def augment_corpus_truth(xmgr, corpus, truth):
     :type corpus: pandas.DataFrame
     :param truth:  truth downloaded from xmgr
     :type truth: pandas.DataFrame
+    :checkpoint_frequency: how often to write intermediate results to a checkpoint file
+    :type checkpoint_frequency: int
     :return: augmented answer corpus
     :rtype: pandas.DataFrame
     """
+
+    def get_pau(pau_id):
+        paus = xmgr.get_paus(pau_id)
+        if paus:
+            pau = paus[0]
+            return {ANSWER: pau["responseMarkup"], TITLE: pau["title"], FILENAME: pau["sourceName"]}
+        else:
+            logger.info("Could not download pau %s" % pau_id)
+            return None
+
     n = len(corpus)
-    missing_pau_ids = truth[missing_truth_in_corpus(corpus, truth)][[ANSWER_ID]].drop_duplicates()
-    logger.info("%d answer IDs referenced in truth missing from corpus" % len(missing_pau_ids))
-    truth_filename = os.path.basename(truth.filename)
-    for missing_pau_id in missing_pau_ids[ANSWER_ID]:
-        for pau in xmgr.get_paus(missing_pau_id):
-            corpus = corpus.append({
-                ANSWER_ID: pau["id"],
-                ANSWER: pau["responseMarkup"],
-                TITLE: pau["title"],
-                FILENAME: pau["sourceName"],
-                DOCUMENT_ID: truth_filename}, ignore_index=True)
+    missing_pau_ids = truth[missing_truth_in_corpus(corpus, truth)][ANSWER_ID].drop_duplicates()
+    l = len(missing_pau_ids)
+    logger.info("%d answer IDs referenced in truth missing from corpus" % l)
+    checkpoint = PauCheckpoint("augment.temp.csv", checkpoint_frequency)
+    get_items("PAUs", missing_pau_ids, checkpoint, get_pau, checkpoint_frequency)
+    new_corpus = from_csv(checkpoint.filename())
+    new_corpus[DOCUMENT_ID] = os.path.basename(truth.filename)
+    corpus = pandas.concat([corpus, new_corpus])
+    # noinspection PyTypeChecker
     m = len(corpus) - n
     if m:
         logger.info("Added %d unique answers (%0.3f%%)" % (m, 100.0 * m / n))
+    if checkpoint.invalid:
+        logger.info("Failed to download %d PAU ids (%0.3f%%)" % (checkpoint.invalid, 100.0 * checkpoint.invalid / l))
+    os.remove(checkpoint.filename())
     return corpus
 
 
