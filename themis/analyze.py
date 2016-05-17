@@ -137,7 +137,7 @@ def analyze_answers(systems_data):
     unique = "Unique"
     systems_data = pandas.concat(systems_data).dropna()
     systems = systems_data.groupby(SYSTEM)
-    summary = systems.sum()[[IN_PURVIEW, CORRECT]]
+    summary = systems[[IN_PURVIEW, CORRECT]].sum()
     summary[[IN_PURVIEW, CORRECT]] = summary[[IN_PURVIEW, CORRECT]].astype("int")
     summary[total] = systems.count()[QUESTION]
     summary[unique] = systems[ANSWER].nunique()
