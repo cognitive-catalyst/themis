@@ -35,7 +35,7 @@ def truth_statistics(truth):
     """
     Generate statistics for the truth.
 
-    :param truth: question to answer mapping
+    :param truth: question to answer mapping used in training
     :type truth: pandas.DataFrame
     :return: number of training pairs, number of unique questions, number of unique answers, histogram of number of
             questions per answer
@@ -120,6 +120,31 @@ def compare_systems(systems_data, x, y, comparison_type):
            col_name(ANSWER, x), col_name(CONFIDENCE, x), col_name(ANSWER, y), col_name(CONFIDENCE, y)]]
     d = d.sort_values([col_name(CONFIDENCE, x), FREQUENCY, QUESTION], ascending=(False, False, True))
     return d.set_index(QUESTION)
+
+
+def analyze_answers(systems_data):
+    """
+    Return statistics about all the answered questions in a test set broken down by system.
+
+    :param systems_data: collated results for all systems
+    :type systems_data: pandas.DataFrame
+    :return: summary statistics
+    :rtype: pandas.DataFrame
+    """
+    total = "Total"
+    in_purview_percent = IN_PURVIEW + " %"
+    correct_percent = CORRECT + " %"
+    unique = "Unique"
+    systems_data = pandas.concat(systems_data).dropna()
+    systems = systems_data.groupby(SYSTEM)
+    summary = systems.sum()[[IN_PURVIEW, CORRECT]]
+    summary[[IN_PURVIEW, CORRECT]] = summary[[IN_PURVIEW, CORRECT]].astype("int")
+    summary[total] = systems.count()[QUESTION]
+    summary[unique] = systems[ANSWER].nunique()
+    summary[in_purview_percent] = summary[IN_PURVIEW] / summary[total] * 100.0
+    summary[correct_percent] = summary[CORRECT] / summary[IN_PURVIEW] * 100.0
+    return summary.sort_values(correct_percent, ascending=False)[
+        [total, unique, IN_PURVIEW, in_purview_percent, CORRECT, correct_percent]]
 
 
 def in_purview_disagreement(systems_data):
