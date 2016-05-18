@@ -8,6 +8,7 @@ from nltk import word_tokenize, FreqDist
 from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
 
 SYSTEM = "System"
+ANSWERING_SYSTEM = "Answering System"
 
 
 def corpus_statistics(corpus):
@@ -240,7 +241,7 @@ def oracle_combination(systems_data, system_names, oracle_name):
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
     # Start the oracle with a copy of one of the systems.
     oracle = systems[0].loc[questions].copy()
-    del oracle[percentile]
+    oracle = oracle.drop([ANSWER, percentile], axis="columns")
     oracle[SYSTEM] = oracle_name
     # An oracle question is in purview if all systems mark it as in purview. There should be consensus on this.
     systems_in_purview = [system.loc[questions][[IN_PURVIEW]] for system in systems]
@@ -253,13 +254,17 @@ def oracle_combination(systems_data, system_names, oracle_name):
     system_confidences = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True),
                                           confidences)
     correct = oracle[CORRECT].astype("bool")
-    oracle.loc[correct, ANSWER] = "CORRECT ANSWER"
     oracle.loc[correct, CONFIDENCE] = system_confidences[correct].max(axis=1)
+    oracle.loc[correct, ANSWERING_SYSTEM] = system_confidences[correct].idxmax(axis=1)
     # If the question is out of purview or the answer is incorrect, use the lowest confidence.
-    oracle.loc[~correct, ANSWER] = "INCORRECT ANSWER"
     oracle.loc[~correct, CONFIDENCE] = system_confidences[~correct].min(axis=1)
+    oracle.loc[~correct, ANSWERING_SYSTEM] = system_confidences[~correct].idxmin(axis=1)
+    # Use the answer produced by the system incorporated into the oracle.
+    oracle = oracle.reset_index()
+    oracle[ANSWER] = pandas.merge(systems_data, oracle,
+                                  left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
     log_correct(oracle, oracle_name)
-    return oracle.reset_index()
+    return oracle
 
 
 def filter_judged_answers(systems_data, correct, system_names):
@@ -326,7 +331,9 @@ def drop_missing(systems_data):
         n = len(systems_data)
         systems_data = systems_data.dropna()
         m = n - len(systems_data)
-        logger.warning("Dropping %d of %d question/answer pairs missing information (%0.3f%%)" % (m, n, 100.0 * m / n))
+        if m:
+            logger.warning("Dropping %d of %d question/answer pairs missing information (%0.3f%%)" %
+                           (m, n, 100.0 * m / n))
     return systems_data
 
 
@@ -334,10 +341,14 @@ class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]
 
     def __init__(self):
-        super(self.__class__, self).__init__(CollatedFileType.columns)
+        super(self.__class__, self).__init__(self.__class__.columns)
 
-    @staticmethod
-    def output_format(collated):
-        collated = collated[CollatedFileType.columns]
+    @classmethod
+    def output_format(cls, collated):
+        collated = collated[cls.columns]
         collated = collated.sort_values([QUESTION, SYSTEM])
         return collated.set_index([QUESTION, SYSTEM, ANSWER])
+
+
+class OracleFileType(CollatedFileType):
+    columns = CollatedFileType.columns[:2] + [ANSWERING_SYSTEM] + CollatedFileType.columns[2:]
