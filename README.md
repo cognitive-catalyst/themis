@@ -1,6 +1,6 @@
 # Themis Data Analysis
 
-This package provides a suite of tools for evaluating question-answering systems: the 
+This package provides a suite of tools for evaluating question-answering systems: the
 [Watson Engagement Advisor (WEA)](http://www.ibm.com/smarterplanet/us/en/ibmwatson/engagement_advisor.html),
 [Solr](http://lucene.apache.org/solr),
 and the [Natural Language Classifier (NLC)](http://www.ibm.com/smarterplanet/us/en/ibmwatson/developercloud/doc/nl-classifier/)
@@ -81,7 +81,7 @@ The answers are written to `answers.solr.csv`.
 To ask questions of the NLC we must first train a model using the truth file downloaded from XMGR as training data.
 
     themis answer nlc train NLC-URL USERNAME PASSWORD truth.csv model-name
-    
+
 The `NLC-URL` points to an NLC API endpoint,
 e.g. `https://gateway-s.watsonplatform.net/natural-language-classifier/api`.
 This will return a model ID that can be used in subsequent commands.
@@ -119,7 +119,7 @@ This will sample 1000 unique questions from the set of all questions in `qa-pair
 Questions are sampled from a distribution determined by the frequency with which they were asked in the usage logs.
 The following command will generate annotation assist question/answer input for just these 1000 questions.
 
-    themis judge --questions sample.1000.csv pairs answers.wea.csv answers.solr.csv answers.nlc.csv > annotation-assist.pairs.json
+    themis judge pairs --questions sample.1000.csv answers.wea.csv answers.solr.csv answers.nlc.csv > annotation-assist.pairs.csv
 
 It is also possible to incorporate previous judgments.
 See the command help for details.
@@ -144,7 +144,7 @@ The following command generates precision curve data for the WEA, Solr, and NLC 
 
 This will create `WEA.precision.csv`, `Solr.precision.csv`, and `NLC.precision.csv` files containing threshold values
 and X and Y scatter plot values.
-ROC curves can be generated with the `roc` option in the place of `precision`. 
+ROC curves can be generated with the `roc` option in the place of `precision`.
 If you specify the `--draw` option, the curves will be drawn.
 
 ## License
