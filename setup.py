@@ -9,6 +9,16 @@ setup(
     entry_points={
         'console_scripts': ['themis=themis.main:main'],
     },
+    install_requires=[
+        'nltk',
+        'beautifulsoup4',
+        'watson_developer_cloud',
+        'solrpy',
+        'numpy',
+        'matplotlib',
+        'requests',
+        'pandas >= 0.17.0',
+    ],
     url='https://github.ibm.com/WatsonTooling/data-science',
     license='Apache Software License',
     author='W.P. McNeill',
