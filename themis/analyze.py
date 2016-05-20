@@ -123,12 +123,16 @@ def compare_systems(systems_data, x, y, comparison_type):
     return d.set_index(QUESTION)
 
 
-def analyze_answers(systems_data):
+def analyze_answers(systems_data, freq_le, freq_gr):
     """
     Statistics about all the answered questions in a test set broken down by system.
 
     :param systems_data: collated results for all systems
     :type systems_data: pandas.DataFrame
+    :param freq_gr: optionally only consider questions with frequency greater than this
+    :type freq_gr: int
+    :param freq_le: optionally only consider questions with frequency less than or equal to this
+    :type freq_le: int
     :return: answer summary statistics
     :rtype: pandas.DataFrame
     """
@@ -137,6 +141,10 @@ def analyze_answers(systems_data):
     correct_percent = CORRECT + " %"
     unique = "Unique"
     systems_data = pandas.concat(systems_data).dropna()
+    if freq_le is not None:
+        systems_data = systems_data[systems_data[FREQUENCY] <= freq_le]
+    if freq_gr is not None:
+        systems_data = systems_data[systems_data[FREQUENCY] > freq_gr]
     systems = systems_data.groupby(SYSTEM)
     summary = systems[[IN_PURVIEW, CORRECT]].sum()
     summary[[IN_PURVIEW, CORRECT]] = summary[[IN_PURVIEW, CORRECT]].astype("int")

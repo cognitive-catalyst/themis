@@ -534,6 +534,10 @@ def analyze_command(parser, subparsers):
     answer_parser = subparsers.add_parser("answers", help="answered questions statistics")
     answer_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                                help="combined system answers and judgments created by 'analyze collate'")
+    answer_parser.add_argument("--freq-le", type=int,
+                               help="only consider questions with frequency less than or equal to this value")
+    answer_parser.add_argument("--freq-gr", type=int,
+                               help="only consider questions with frequency greater than this value")
     answer_parser.set_defaults(func=analyze_answers_handler)
     # Truth coverage statistics.
     truth_coverage_parser = subparsers.add_parser("truth-coverage", help="truth coverage statistics")
@@ -657,7 +661,7 @@ def analyze_questions_handler(args):
 
 
 def analyze_answers_handler(args):
-    summary = analyze_answers(args.collated)
+    summary = analyze_answers(args.collated, args.freq_le, args.freq_gr)
     print_csv(summary)
 
 
