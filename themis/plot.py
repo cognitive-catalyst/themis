@@ -82,8 +82,12 @@ def precision_curve(judgments):
     :rtype: pandas.DataFrame
     """
     ts = confidence_thresholds(judgments, False)
-    precision_values = [precision(judgments, t) for t in ts]
-    attempted_values = [questions_attempted(judgments, t) for t in ts]
+    precision_values = [(t, precision(judgments, t)) for t in ts]
+    attempted_values = [(t, questions_attempted(judgments, t)) for t in ts]
+    # Plot those threshold values that have both x and y values.
+    xs = [(pv[0], pv[1], av[1]) for pv, av in zip(precision_values, attempted_values)
+          if pv[1] is not None and av[1] is not None]
+    ts, precision_values, attempted_values = zip(*xs)  # zip(*x) is the inverse of zip(x)
     curve = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
     return curve
 
@@ -92,14 +96,22 @@ def precision(judgments, t):
     s = judgments[judgments[CONFIDENCE] >= t]
     correct = sum(s[s[CORRECT]][FREQUENCY])
     in_purview = sum(s[s[IN_PURVIEW]][FREQUENCY])
-    return correct / float(in_purview)
+    try:
+        return correct / float(in_purview)
+    except ZeroDivisionError:
+        logger.warning("No in-purview questions at threshold level %0.3f" % t)
+        return None
 
 
 def questions_attempted(judgments, t):
     s = judgments[judgments[CONFIDENCE] >= t]
     in_purview_attempted = sum(s[s[IN_PURVIEW]][FREQUENCY])
     total_in_purview = sum(judgments[judgments[IN_PURVIEW]][FREQUENCY])
-    return in_purview_attempted / float(total_in_purview)
+    try:
+        return in_purview_attempted / float(total_in_purview)
+    except ZeroDivisionError:
+        logger.warning("No in-purview questions attempted at threshold level %0.3f" % t)
+        return None
 
 
 def confidence_thresholds(judgments, add_max):
