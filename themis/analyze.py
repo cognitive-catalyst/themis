@@ -351,6 +351,16 @@ class CollatedFileType(CsvFileType):
     def __init__(self):
         super(self.__class__, self).__init__(self.__class__.columns)
 
+    def __call__(self, filename):
+        collated = super(self.__class__, self).__call__(filename)
+        m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
+        if m:
+            n = len(collated)
+            logger.warning(
+                "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
+                % (m, n, filename, 100.0 * m / n))
+        return collated
+
     @classmethod
     def output_format(cls, collated):
         collated = collated[cls.columns]

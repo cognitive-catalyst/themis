@@ -48,8 +48,13 @@ def main():
     # Print the version number.
     version_command(subparsers)
 
+    # Set logger to default level before parsing arguments so command line parsing can log messages.
+    fmt = "%(asctime)-15s %(levelname)-8s %(message)s"
+    configure_logger(parser.get_default("log"), fmt)
     args = parser.parse_args()
-    configure_logger(args.log.upper(), "%(asctime)-15s %(levelname)-8s %(message)s")
+    logger.handlers = []  # Reset so that we don't have duplicate handlers.
+
+    configure_logger(args.log.upper(), fmt)
     args.func(args)
 
 
