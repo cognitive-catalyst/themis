@@ -12,7 +12,7 @@ from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, p
     __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID, ensure_directory_exists
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
     compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics, \
-    in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType
+    in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.checkpoint import retry
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
@@ -553,6 +553,13 @@ def analyze_command(parser, subparsers):
     truth_coverage_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                                        help="combined system answers and judgments created by 'analyze collate'")
     truth_coverage_parser.set_defaults(func=truth_coverage_handler)
+    # Fat-head vs. long-tail analysis.
+    long_tail_parser = subparsers.add_parser("long-tail", help="long tail vs. fat head statistics")
+    long_tail_parser.add_argument("--frequency-cutoff", metavar="FREQUENCY", type=int, default=1,
+                                  help="long-tail frequency cutoff, default 1")
+    long_tail_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
+                                  help="combined system answers and judgments created by 'analyze collate'")
+    long_tail_parser.set_defaults(func=long_tail_handler)
     # Find disagreement in purview judgments.
     purview_disagreement_parser = subparsers.add_parser("purview", help="find non-unanimous in-purview judgments")
     purview_disagreement_parser.add_argument("collated", type=CollatedFileType(),
@@ -673,6 +680,14 @@ def analyze_answers_handler(args):
 def truth_coverage_handler(args):
     coverage = truth_coverage(args.corpus, args.truth, args.collated)
     print_csv(coverage)
+
+
+def long_tail_handler(args):
+    fat_head, long_tail = long_tail_fat_head(args.frequency_cutoff, args.collated)
+    print("Fat Head (frequency > %d)" % args.frequency_cutoff)
+    print_csv(fat_head)
+    print("Long Tail (frequency <= %d)" % args.frequency_cutoff)
+    print_csv(long_tail)
 
 
 def purview_disagreement_handler(args):

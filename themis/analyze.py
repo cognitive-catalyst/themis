@@ -191,6 +191,26 @@ def truth_coverage(corpus, truth, systems_data):
          "Correct Answers in Truth", "Correct Answers in Truth %"]].sort_values("Correct Answers", ascending=False)
 
 
+# noinspection PyTypeChecker
+def long_tail_fat_head(frequency_cutoff, systems_data):
+    """
+    Accuracy statistics broken down by question "fat head" and "long tail".
+
+    The fat head is defined to be all questions with a frequency above a cutoff value. The long tail is defined to be
+    all questions with a frequency below that value.
+
+    :param frequency_cutoff: question frequency dividing fat head from long tail
+    :type frequency_cutoff: int
+    :param systems_data: collated results for all systems
+    :type systems_data: pandas.DataFrame
+    :return: truth coverage summary statistics for the fat head and long tail
+    :rtype: (pandas.DataFrame, pandas.DataFrame)
+    """
+    fat_head = analyze_answers(systems_data, None, frequency_cutoff)
+    long_tail = analyze_answers(systems_data, frequency_cutoff, None)
+    return fat_head, long_tail
+
+
 def in_purview_disagreement(systems_data):
     """
     Return collated data where in-purview judgments are not unanimous for a question.
