@@ -236,10 +236,11 @@ def in_purview_disagreement(systems_data):
 def oracle_combination(systems_data, system_names, oracle_name):
     """
     Combine results from multiple systems into a single oracle system. The oracle system gets a question correct if any
-    of its component system did.
+    of its component systems did. If the answer is correct use the highest confidence. If it is incorrect, use the
+    lowest confidence.
 
-    (A question is in purview if judgments from all the systems say it is in purview. These judgments should generally
-    be unanimous.)
+    (A question is in purview if judgments from all the systems say it is in purview. These judgments should be
+    unanimous. The 'themis analyze purview' command finds when this is not the case.)
 
     :param systems_data: collated results for all systems
     :type systems_data: pandas.DataFrame
@@ -322,7 +323,8 @@ def filter_judged_answers(systems_data, correct, system_names):
 def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_frequencies, remove_newlines):
     """
     Collate system answer confidences and annotator judgments by question/answer pair.
-    Add to each pair the question frequency.
+    Add to each pair the question frequency. Collated system files are used as input to subsequent cross-system
+    analyses.
 
     Though you expect the set of question/answer pairs in the system answers and judgments to not be disjoint, it may
     be the case that neither is a subset of the other. If annotation is incomplete, there may be Q/A pairs in the

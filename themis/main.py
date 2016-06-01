@@ -5,6 +5,8 @@ various Q&A systems, annotate the answers and analyze the results.
 
 import argparse
 import os
+import textwrap
+from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
 
@@ -71,12 +73,20 @@ def xmgr_command(subparsers):
 
     output_directory = argparse.ArgumentParser(add_help=False)
     output_directory.add_argument("--output-directory", metavar="OUTPUT-DIRECTORY", type=str, default=".",
-                                  help="output directory")
+                                  help="output directory, default current directory")
 
     xmgr_parser = subparsers.add_parser("xmgr", help="download information from XMGR")
     subparsers = xmgr_parser.add_subparsers(description="download information from XMGR")
     # Download corpus from XMGR.
-    xmgr_download = subparsers.add_parser("download-corpus",
+    xmgr_download = subparsers.add_parser("download-corpus", formatter_class=Raw,
+                                          description=textwrap.dedent("""
+    Download the corpus from an XMGR project
+
+    A corpus is a mapping of answer text to answer Ids. It also contains answer titles and the names of the documents
+    from which the answers were extracted.
+
+    This can take a long time to complete, so intermediate results are saved in the directory. If you restart an
+    incomplete download it will pick up where it left off."""),
                                           parents=[xmgr_shared_arguments, output_directory], help="download corpus")
     xmgr_download.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
                                help="maximum number of corpus documents to download")
@@ -85,7 +95,13 @@ def xmgr_command(subparsers):
     xmgr_download.add_argument("--retries", type=int, help="number of times to retry downloading after an error")
     xmgr_download.set_defaults(func=download_handler)
     # Get corpus from TREC documents directory.
-    xmgr_trec = subparsers.add_parser("trec-corpus", parents=[output_directory], help="extract corpus from TREC files")
+    xmgr_trec = subparsers.add_parser("trec-corpus", parents=[output_directory],
+                                      formatter_class=Raw,
+                                      description=textwrap.dedent("""
+    Extract the corpus from the TREC XML files in which XMGR stores PAU information.
+
+    This is for when we have file system access to the corpus instead of needing to download it."""),
+                                      help="extract corpus from TREC files")
     xmgr_trec.add_argument("directory", help="directory containing XML TREC files")
     xmgr_trec.add_argument("--max-docs", metavar="MAX-DOCS", type=int,
                            help="maximum number of TREC documents to examine")
@@ -94,42 +110,94 @@ def xmgr_command(subparsers):
     xmgr_trec.set_defaults(func=trec_handler)
     # Download truth from XMGR.
     xmgr_truth = subparsers.add_parser("truth", parents=[xmgr_shared_arguments, output_directory],
+                                       formatter_class=Raw,
+                                       description=textwrap.dedent("""
+    Download truth from an XMGR project.
+
+    Truth is a mapping of sets of questions to answer documents. Truth is used to train the WEA model and may be used
+    to train an NLC model.
+
+    This function creates two files in the output directory: a raw truth.json that contains all the information
+    downloaded from XMGR and a filtered truth.csv file."""),
                                        help="download truth file")
     xmgr_truth.set_defaults(func=truth_handler)
     # Download PAU ids corresponding to a document.
     xmgr_pau = subparsers.add_parser("pau-ids", parents=[xmgr_shared_arguments],
+                                     formatter_class=Raw,
+                                     description=textwrap.dedent("""
+                                     Each document has a number of associated PAUs. This downloads all the PAU Id
+                                     corresponding to a given document Id, which may be helpful when debugging problems
+                                     with corpus download."""),
                                      help="list PAU ids corresponding to a document")
     xmgr_pau.add_argument("document", help="document id")
     xmgr_pau.set_defaults(func=document_handler)
     # Download individual PAU.
-    xmgr_pau = subparsers.add_parser("pau", parents=[xmgr_shared_arguments], help="download an individual PAU")
+    xmgr_pau = subparsers.add_parser("pau", parents=[xmgr_shared_arguments],
+                                     formatter_class=Raw,
+                                     description=textwrap.dedent("""
+    This downloads the PAU corresponding to a given PAU Id, which may be helpful when debugging problems
+    with corpus download."""),
+                                     help="download an individual PAU")
     xmgr_pau.add_argument("pau", help="PAU id")
     xmgr_pau.set_defaults(func=pau_handler)
     # Augment corpus with answers from usage logs.
-    augment_answers = subparsers.add_parser("augment-answers", help="augment corpus with answers from usage logs")
+    augment_answers = subparsers.add_parser("augment-answers",
+                                            formatter_class=Raw,
+                                            description=textwrap.dedent("""
+    Create a set of answers culled from both the corpus and the usage logs.
+
+    These answers can be used to populate a Solr database.
+
+    You would expect all the answers returned by the system to be in the corpus, but this is not the case. The
+    'themis xmgr validate-answers' command shows which answers are missing from the corpus."""),
+                                            help="augment corpus with answers from usage logs")
     augment_answers.add_argument("corpus", type=CorpusFileType(),
                                  help="corpus file created by the 'download-corpus' or 'trec-corpus' command")
     augment_answers.add_argument("qa_pairs", metavar="qa-pairs", type=QAPairFileType(),
                                  help="question/answer pairs produced by the 'question extract' command")
     augment_answers.set_defaults(func=augment_answers_handler)
     # Augment corpus with answer IDs pulled from truth.
-    augment_truth = subparsers.add_parser("augment-truth", parents=[xmgr_shared_arguments, verify_arguments],
-                                          help="augment corpus with answers from usage logs")
+    augment_truth = subparsers.add_parser("augment-truth",
+                                          formatter_class=Raw,
+                                          description=textwrap.dedent("""
+    Find answer IDs referenced in the truth file that are missing from the corpus, download them from XMGR, then add
+    them to the corpus.
+
+    Intermediary results are periodically written to an augment.temp.csv file in the current directory so that
+    downloading can resume from where it left off if it fails in the middle. The augment.temp.csv file is deleted upon
+    completion of downloading."""),
+                                          parents=[xmgr_shared_arguments, verify_arguments],
+                                          help="augment corpus with PAUs mentioned in truth")
     augment_truth.add_argument("--checkpoint-frequency", metavar="CHECKPOINT-FREQUENCY", type=int, default=10,
                                help="flush to checkpoint file after downloading this many answers")
     augment_truth.set_defaults(func=augment_truth_handler)
     # Filter corpus.
-    xmgr_filter = subparsers.add_parser("filter", help="fix up corpus")
+    xmgr_filter = subparsers.add_parser("filter",
+                                        formatter_class=Raw,
+                                        description="Remove corpus entries above a specified size.",
+                                        help="fix up corpus")
     xmgr_filter.add_argument("corpus", type=CorpusFileType(), help="file downloaded by 'xmgr corpus'")
     xmgr_filter.add_argument("--max-size", metavar="MAX-SIZE", type=int,
                              help="maximum size of answer text in characters")
     xmgr_filter.set_defaults(func=filter_corpus_handler)
     # Verify that truth answer Ids are in the corpus.
     xmgr_validate_truth = subparsers.add_parser("validate-truth", parents=[verify_arguments, output_directory],
+                                                formatter_class=Raw,
+                                                description=textwrap.dedent("""
+    Verify that all the answer IDs in the truth appear in the corpus.
+
+    If they are all present in the corpus, this does nothing. If any are missing, it creates two new files:
+    truth.in-corpus.csv and truth.not-in-corpus.csv."""),
                                                 help="ensure that all truth answer Ids are in the corpus")
     xmgr_validate_truth.set_defaults(func=validate_truth_handler)
     # Verify that usage log answers are in the corpus.
     xmgr_validate_answers = subparsers.add_parser("validate-answers", parents=[output_directory],
+                                                  formatter_class=Raw,
+                                                  description=textwrap.dedent("""
+    Verify that all the answers in the Q&A pairs are present in the corpus.
+
+    If they are all present in the corpus, this does nothing. If any are missing, it creates two new files:
+    answers.in-corpus.csv and answers.not-in-corpus.csv."""),
                                                   help="ensure that all WEA answers are in the corpus")
     xmgr_validate_answers.add_argument("corpus", type=CorpusFileType(),
                                        help="corpus file created by the 'download corpus' command")
@@ -138,6 +206,11 @@ def xmgr_command(subparsers):
     xmgr_validate_answers.set_defaults(func=validate_answers_handler)
     # Write questions and answers in truth to an HTML file.
     xmgr_examine = subparsers.add_parser("examine-truth", parents=[verify_arguments],
+                                         formatter_class=Raw,
+                                         description=textwrap.dedent("""
+    Print an HTML file of all the answers in the truth with their corresponding questions.
+
+    This can be used to verify that the truth file makes sense."""),
                                          help="create human-readable truth file with answers and their " +
                                               "associated questions")
     xmgr_examine.set_defaults(func=examine_handler)
@@ -204,7 +277,14 @@ def question_command(subparsers):
     question_parser = subparsers.add_parser("question", help="get questions to ask a Q&A system")
     subparsers = question_parser.add_subparsers(description="get questions to ask a Q&A system")
     # Extract questions from usage logs.
-    question_extract = subparsers.add_parser("extract", help="extract question/answer pairs from usage logs")
+    question_extract = subparsers.add_parser("extract",
+                                             formatter_class=Raw,
+                                             description=textwrap.dedent("""
+    Extract questions and answers from usage logs, adding question frequency information.
+
+    We are assuming here that a given question always elicits the same answer. Print a warning if this is not the case
+    and drop answers to make the answers unique. It is arbitrary which answer is dropped."""),
+                                             help="extract question/answer pairs from usage logs")
     question_extract.add_argument("usage_log", metavar="usage-log", nargs="+", type=UsageLogFileType(),
                                   help="QuestionsData.csv usage log file from XMGR")
     question_extract.add_argument("--before", metavar="DATE", type=pandas.to_datetime,
@@ -216,7 +296,14 @@ def question_command(subparsers):
     question_extract.add_argument("--deakin", action="store_true", help="fixups specific to the Deakin system")
     question_extract.set_defaults(func=extract_handler)
     # Sample questions by frequency.
-    question_sample = subparsers.add_parser("sample", help="sample questions")
+    question_sample = subparsers.add_parser("sample",
+                                            formatter_class=Raw,
+                                            description=textwrap.dedent("""
+    Sample a specified number unique of questions extracted by the 'themis question extract' command.
+
+    Questions are sampled without replacement according to a distribution determined by their frequency, so more
+    frequently asked questions are more likely to be in the sample."""),
+                                            help="sample questions")
     question_sample.add_argument("questions", type=QAPairFileType(),
                                  help="question/answer pairs extracted from usage log by the 'question extract' command")
     question_sample.add_argument("sample_size", metavar="sample-size", type=int,
@@ -282,13 +369,27 @@ def answer_command(subparsers):
     subparsers = answer_parser.add_subparsers(description="answer questions with Q&A systems", help="Q&A systems")
 
     # Extract answers from the usage log.
-    answer_wea = subparsers.add_parser("wea", parents=[qa_shared_arguments], help="extract WEA answers from usage log")
+    answer_wea = subparsers.add_parser("wea", parents=[qa_shared_arguments],
+                                       formatter_class=Raw,
+                                       description=textwrap.dedent("""
+    Get answers returned by WEA to questions by looking them up in the usage log.
+
+    Each question in the Q&A pairs must have a unique answer.
+
+    The question/answer pairs are written to a specified file."""),
+                                       help="extract WEA answers from usage log")
     answer_wea.add_argument("qa_pairs", metavar="qa-pairs", type=QAPairFileType(),
                             help="question/answer pairs produced by the 'question extract' command")
     answer_wea.set_defaults(func=wea_handler)
 
     # Query answers from a Solr database.
     answer_solr = subparsers.add_parser("solr", parents=[qa_shared_arguments, checkpoint_argument],
+                                        formatter_class=Raw,
+                                        description=textwrap.dedent("""
+    Use questions as query text to a Solr database. The top hit returned is treated as the answer to the question.
+
+    Results are saved to an intermediary file. If the process fails in the middle it can be restarted and will pick up
+    where it left off."""),
                                         help="query answers from a Solr database")
     answer_solr.add_argument("url", type=str, help="solr URL")
     answer_solr.set_defaults(func=solr_handler)
@@ -299,7 +400,8 @@ def answer_command(subparsers):
     nlc_shared_arguments.add_argument("username", help="NLC username")
     nlc_shared_arguments.add_argument("password", help="NLC password")
 
-    nlc_parser = subparsers.add_parser("nlc", help="answer questions with NLC")
+    nlc_parser = subparsers.add_parser("nlc",
+                                       help="answer questions with NLC")
     nlc_subparsers = nlc_parser.add_subparsers(title="Natural Language Classifier",
                                                description="train, use, and manage NLC models", help="NLC actions")
     # Train NLC model.
@@ -309,6 +411,13 @@ def answer_command(subparsers):
     nlc_train.set_defaults(func=nlc_train_handler)
     # Use an NLC model.
     nlc_use = nlc_subparsers.add_parser("use", parents=[nlc_shared_arguments, qa_shared_arguments, checkpoint_argument],
+                                        formatter_class=Raw,
+                                        description=textwrap.dedent("""
+    Use an NLC model to classify questions. The answer corresponding to the most likely class is treated as the answer
+    to the question.
+
+    Results are saved to an intermediary file. If the process fails in the middle it can be restarted and will pick up
+    where it left off."""),
                                         help="use NLC model")
     nlc_use.add_argument("classifier", help="classifier id")
     nlc_use.add_argument("corpus", type=CorpusFileType(),
@@ -385,6 +494,12 @@ def judge_command(subparsers):
     subparsers = judge_parser.add_subparsers(description="create and interpret files used by Annotation Assist")
     # Annotation Assistant Q&A pairs.
     judge_pairs = subparsers.add_parser("pairs",
+                                        formatter_class=Raw,
+                                        description=textwrap.dedent("""
+    Create list of Q&A pairs for judgment by Annotation Assist.
+
+    The Q&A pairs to be judged are compiled from sets of answers generated by Q&A systems. These may be filtered by an
+    optional list of questions. Judgements may be taken from optional sets of previously judged Q&A pairs."""),
                                         help="generate question and answer pairs for judgment by Annotation Assistant")
     judge_pairs.add_argument("answers", type=CsvFileType(), nargs="+",
                              help="answers generated by one of the 'answer' commands")
@@ -394,19 +509,33 @@ def judge_command(subparsers):
                              help="Q&A pair judgments generated by the 'judge interpret' command")
     judge_pairs.set_defaults(func=annotation_pairs_handler)
     # Annotation Assistant corpus.
-    judge_corpus = subparsers.add_parser("corpus", help="generate corpus file for Annotation Assistant")
+    judge_corpus = subparsers.add_parser("corpus",
+                                         description="Create the JSON corpus file used by the Annotation Assist tool.",
+                                         help="generate corpus file for Annotation Assistant")
     judge_corpus.add_argument("corpus", type=CorpusFileType(),
                               help="corpus file created by the 'download corpus' command")
     judge_corpus.set_defaults(func=annotation_corpus_handler)
     # Interpret Annotation Assistant judgments.
-    judge_interpret = subparsers.add_parser("interpret", help="interpret Annotation Assistant judgments")
+    judge_interpret = subparsers.add_parser("interpret",
+                                            formatter_class=Raw,
+                                            description=textwrap.dedent("""
+    Convert the file produced by the Annotation Assist tool into a set of judgments that can be used by Themis.
+
+    Convert the in purview column from an integer value to a boolean. Convert the annotation score column to a boolean
+    correct column by applying a threshold. An answer can only be correct if the question is in purview. Drop any Q&A
+    pairs that have multiple annotations."""),
+                                            help="interpret Annotation Assistant judgments")
     judge_interpret.add_argument("judgments", type=AnnotationAssistFileType(),
                                  help="judgments file downloaded from Annotation Assistant")
     judge_interpret.add_argument("--judgment-threshold", metavar="JUDGMENT-THRESHOLD", type=float, default=50,
                                  help="cutoff value for a correct score, default 50")
     judge_interpret.set_defaults(func=annotation_interpret_handler)
     # Create sample of already judged questions.
-    judge_sample = subparsers.add_parser("sample", help="create sample of already judged questions")
+    judge_sample = subparsers.add_parser("sample",
+                                         formatter_class=Raw,
+                                         description=textwrap.dedent("""
+    Create a sample from a set of previously judged questions instead of a random selection from the logs."""),
+                                         help="create sample of already judged questions")
     judge_sample.add_argument("frequency", type=QuestionFrequencyFileType(),
                               help="question frequency file " +
                                    "generated by the 'question extract' or 'question sample' commands")
@@ -414,7 +543,12 @@ def judge_command(subparsers):
                               help="Q&A pair judgments generated by the 'judge interpret' command")
     judge_sample.set_defaults(func=judge_sample_handler)
     # Augment usage logs with judgments.
-    judge_augment = subparsers.add_parser("augment", help="augment usage logs with judgments")
+    judge_augment = subparsers.add_parser("augment",
+                                          description=textwrap.dedent("""
+    Add In Purview and Annotation Score information to system usage log.
+
+    This information can be used for subsequent analysis and/or retraining of the system by the customer."""),
+                                          help="augment usage logs with judgments")
     judge_augment.add_argument("usage_log", metavar="usage-log", nargs="+", type=CsvFileType(),
                                help="QuestionsData.csv usage log file from XMGR")
     judge_augment.add_argument("judgments", type=JudgmentFileType(),
@@ -450,7 +584,8 @@ def judge_sample_handler(args):
 def augment_handler(args):
     usage_log = pandas.concat(args.usage_log)
     # noinspection PyTypeChecker
-    augment_usage_log(usage_log, args.judments)
+    augmented = augment_usage_log(usage_log, args.judments)
+    print_csv(augmented)
 
 
 def analyze_command(parser, subparsers):
@@ -464,7 +599,21 @@ def analyze_command(parser, subparsers):
 
     subparsers = analyze_parser.add_subparsers(description="analyze results")
     # Collate results.
-    collate = subparsers.add_parser("collate", help="combine Q&A pairs and judgments across systems")
+    collate = subparsers.add_parser("collate",
+                                    formatter_class=Raw,
+                                    description=textwrap.dedent("""
+    Collate system answer confidences and annotator judgments by question/answer pair.
+    Add to each pair the question frequency. Collated system files are used as input to subsequent cross-system
+    analyses.
+
+    Though you expect the set of question/answer pairs in the system answers and judgments to not be disjoint, it may
+    be the case that neither is a subset of the other. If annotation is incomplete, there may be Q/A pairs in the
+    system answers that haven't been annotated yet. If multiple systems are being judged, there may be Q/A pairs in the
+    judgements that don't appear in the system answers.
+
+    Some versions of Annotation Assist strip newlines from the answers they return in the judgement files, so
+    optionally take this into account when joining on question/answer pairs."""),
+                                    help="combine Q&A pairs and judgments across systems")
     collate.add_argument("frequency", type=QuestionFrequencyFileType(),
                          help="question frequency file " +
                               "generated by the 'question extract' or 'question sample' commands")
@@ -476,7 +625,13 @@ def analyze_command(parser, subparsers):
     collate.add_argument("--remove-newlines", action="store_true", help="join on answers with newlines removed")
     collate.set_defaults(func=HandlerClosure(collate_handler, parser))
     # Plot collated results.
-    plot_parser = subparsers.add_parser("plot", help="generate performance plots from judged answers")
+    plot_parser = subparsers.add_parser("plot",
+                                        description=textwrap.dedent("""
+    Generate precision and ROC curves for multiple systems.
+
+    Plot data is generated for each system represented in the collated file and written to a file in the output
+    directory named 'precision|roc.SYSTEM-NAME.csv'."""),
+                                        help="generate performance plots from judged answers")
     plot_parser.add_argument("type", choices=["roc", "precision"], help="type of plot to create")
     plot_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                              help="combined system answers and judgments created by 'analyze collate'")
@@ -484,19 +639,36 @@ def analyze_command(parser, subparsers):
     plot_parser.add_argument("--draw", action="store_true", help="draw plots")
     plot_parser.set_defaults(func=plot_handler)
     # Print in-purview correct answers.
-    correct_parser = subparsers.add_parser("correct", parents=[filter_arguments], help="in-purview correct answers")
+    correct_parser = subparsers.add_parser("correct", parents=[filter_arguments],
+                                           formatter_class=Raw,
+                                           description=textwrap.dedent("""
+    Print the in-purview correct answers for the specified systems."""),
+                                           help="in-purview correct answers")
     correct_parser.set_defaults(func=correct_handler)
     # Print in-purview incorrect answers.
     incorrect_parser = subparsers.add_parser("incorrect", parents=[filter_arguments],
+                                             formatter_class=Raw,
+                                             description=textwrap.dedent("""
+    Print the in-purview incorrect answers for the specified systems."""),
                                              help="in-purview incorrect answers")
     incorrect_parser.set_defaults(func=incorrect_handler)
     # Similarity of system answers.
-    similarity_parser = subparsers.add_parser("similarity", help="measure similarity of different systems' answers")
+    similarity_parser = subparsers.add_parser("similarity",
+                                              formatter_class=Raw,
+                                              description=textwrap.dedent("""
+    For each system pair, return the number of questions they answered the same."""),
+                                              help="measure similarity of different systems' answers")
     similarity_parser.add_argument("collated", type=CollatedFileType(),
                                    help="combined system answers and judgments created by 'analyze collate'")
     similarity_parser.set_defaults(func=similarity_handler)
     # Comparison of system pairs.
-    comparison_parser = subparsers.add_parser("compare", help="compare two systems' performance")
+    comparison_parser = subparsers.add_parser("compare",
+                                              formatter_class=Raw,
+                                              description=textwrap.dedent("""
+    On which questions did system x do better or worse than system y?
+
+    System x did better than system y if it correctly answered a question when system y did not, and vice versa."""),
+                                              help="compare two systems' performance")
     comparison_parser.add_argument("type", choices=["better", "worse"],
                                    help="relative performance of first to second system")
     comparison_parser.add_argument("system_1", metavar="system-1", help="first system")
@@ -506,6 +678,14 @@ def analyze_command(parser, subparsers):
     comparison_parser.set_defaults(func=comparison_handler)
     # Create multi-system oracle.
     oracle_parser = subparsers.add_parser("oracle",
+                                          formatter_class=Raw,
+                                          description=textwrap.dedent("""
+    Combine results from multiple systems into a single oracle system. The oracle system gets a question correct if any
+    of its component systems did. If the answer is correct use the highest confidence. If it is incorrect, use the
+    lowest confidence.
+
+    (A question is in purview if judgments from all the systems say it is in purview. These judgments should be
+    unanimous. The 'themis analyze purview' command finds when this is not the case.)"""),
                                           help="combine multiple systems into a single oracle system " +
                                                "that is correct when any one of them is correct")
     oracle_parser.add_argument("collated", type=CollatedFileType(),
@@ -513,13 +693,19 @@ def analyze_command(parser, subparsers):
     oracle_parser.add_argument("system_names", metavar="system", nargs="+", help="name of systems to combine")
     oracle_parser.set_defaults(func=oracle_handler)
     # Corpus statistics.
-    corpus_parser = subparsers.add_parser("corpus", help="corpus statistics")
+    corpus_parser = subparsers.add_parser("corpus",
+                                          formatter_class=Raw,
+                                          description=textwrap.dedent("""
+    Generate statistics for the corpus, e.g. number of documents and tokens."""),
+                                          help="corpus statistics")
     corpus_parser.add_argument("corpus", type=CorpusFileType(),
                                help="corpus file created by the 'download corpus' command")
     corpus_parser.add_argument("--histogram", help="token frequency per answer histogram")
     corpus_parser.set_defaults(func=analyze_corpus_handler)
     # Truth statistics.
-    truth_parser = subparsers.add_parser("truth", help="truth statistics")
+    truth_parser = subparsers.add_parser("truth",
+                                         description="Generate statistics for the truth.",
+                                         help="truth statistics")
     truth_parser.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
     truth_parser.add_argument("--histogram", help="answers per question histogram")
     truth_parser.add_argument("--corpus", type=CorpusFileType(),
@@ -527,7 +713,11 @@ def analyze_command(parser, subparsers):
                                    "used to add answer text to the histogram")
     truth_parser.set_defaults(func=HandlerClosure(analyze_truth_handler, parser))
     # Test set statistics.
-    questions_parser = subparsers.add_parser("questions", help="question set statistics")
+    questions_parser = subparsers.add_parser("questions",
+                                             formatter_class=Raw,
+                                             description=textwrap.dedent("""
+    Generate statistics for the question set, including which question appear in the truth."""),
+                                             help="question set statistics")
     questions_parser.add_argument("sample", type=QuestionSetFileType(),
                                   help="question set generated by either the 'question extract' " +
                                        "or 'question sample' command")
@@ -536,16 +726,24 @@ def analyze_command(parser, subparsers):
     questions_parser.add_argument("truth", type=TruthFileType(), help="truth file created by the 'xmgr truth' command")
     questions_parser.set_defaults(func=analyze_questions_handler)
     # Answer statistics.
-    answer_parser = subparsers.add_parser("answers", help="answered questions statistics")
+    answer_parser = subparsers.add_parser("answers",
+                                          formatter_class=Raw,
+                                          description=textwrap.dedent("""
+    Generate statistics on answered questions broken down by purview, correctness, and system."""),
+                                          help="answered questions statistics")
     answer_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                                help="combined system answers and judgments created by 'analyze collate'")
-    answer_parser.add_argument("--freq-le", type=int,
+    answer_parser.add_argument("--freq-le", metavar="FREQUENCY", type=int,
                                help="only consider questions with frequency less than or equal to this value")
-    answer_parser.add_argument("--freq-gr", type=int,
+    answer_parser.add_argument("--freq-gr", metavar="FREQUENCY", type=int,
                                help="only consider questions with frequency greater than this value")
     answer_parser.set_defaults(func=analyze_answers_handler)
     # Truth coverage statistics.
-    truth_coverage_parser = subparsers.add_parser("truth-coverage", help="truth coverage statistics")
+    truth_coverage_parser = subparsers.add_parser("truth-coverage",
+                                                  formatter_class=Raw,
+                                                  description=textwrap.dedent("""
+    Statistics about which answers came from the truth set broken down by system."""),
+                                                  help="truth coverage statistics")
     truth_coverage_parser.add_argument("corpus", type=CorpusFileType(),
                                        help="corpus file created by the 'download corpus' command")
     truth_coverage_parser.add_argument("truth", type=TruthFileType(),
@@ -554,14 +752,26 @@ def analyze_command(parser, subparsers):
                                        help="combined system answers and judgments created by 'analyze collate'")
     truth_coverage_parser.set_defaults(func=truth_coverage_handler)
     # Fat-head vs. long-tail analysis.
-    long_tail_parser = subparsers.add_parser("long-tail", help="long tail vs. fat head statistics")
+    long_tail_parser = subparsers.add_parser("long-tail",
+                                             description=textwrap.dedent("""
+    Accuracy statistics broken down by 'fat-head' and 'long-tail' questions.
+
+    Fat-head are questions with frequency above a threshold value. Long-tail are questions with frequency equal to or
+    less than the threshold."""),
+                                             help="long tail vs. fat head statistics")
     long_tail_parser.add_argument("--frequency-cutoff", metavar="FREQUENCY", type=int, default=1,
                                   help="long-tail frequency cutoff, default 1")
     long_tail_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                                   help="combined system answers and judgments created by 'analyze collate'")
     long_tail_parser.set_defaults(func=long_tail_handler)
     # Find disagreement in purview judgments.
-    purview_disagreement_parser = subparsers.add_parser("purview", help="find non-unanimous in-purview judgments")
+    purview_disagreement_parser = subparsers.add_parser("purview",
+                                                        formatter_class=Raw,
+                                                        description=textwrap.dedent("""
+    Return collated data where in-purview judgments are not unanimous for a question.
+
+    These questions' purview should be rejudged to make them consistent."""),
+                                                        help="find non-unanimous in-purview judgments")
     purview_disagreement_parser.add_argument("collated", type=CollatedFileType(),
                                              help="combined system answers and judgments created by 'analyze collate'")
     purview_disagreement_parser.set_defaults(func=purview_disagreement_handler)

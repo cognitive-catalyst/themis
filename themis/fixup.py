@@ -6,7 +6,7 @@ from themis.question import DATE_TIME, USER_EXPERIENCE
 
 def filter_corpus(corpus, max_size):
     """
-    Remove corpus entries above a specified size
+    Remove corpus entries above a specified size.
 
     :param corpus: corpus with Answer Id and Answer columns
     :type corpus: pandas.DataFrame
