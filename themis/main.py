@@ -10,24 +10,38 @@ from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
 
-from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
-    __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID, ensure_directory_exists
-from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
-    compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics, \
-    in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head
-from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
+from themis import (ANSWER, ANSWER_ID, CORRECT, DOCUMENT_ID, FREQUENCY,
+                    IN_PURVIEW, QUESTION, CsvFileType, __version__,
+                    configure_logger, ensure_directory_exists, logger,
+                    pretty_print_json, print_csv, to_csv)
+from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
+                            add_judgments_and_frequencies_to_qa_pairs,
+                            analyze_answers, compare_systems,
+                            corpus_statistics, filter_judged_answers,
+                            in_purview_disagreement, long_tail_fat_head,
+                            oracle_combination, system_similarity,
+                            truth_coverage, truth_statistics)
+from themis.answer import (AnswersFileType, Solr, answer_questions,
+                           get_answers_from_usage_log)
 from themis.checkpoint import retry
-from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
-from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
-    interpret_annotation_assist, JudgmentFileType, augment_usage_log
-from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
+from themis.fixup import (deakin, filter_corpus, filter_usage_log_by_date,
+                          filter_usage_log_by_user_experience)
+from themis.judge import (AnnotationAssistFileType, JudgmentFileType,
+                          annotation_assist_qa_input, augment_usage_log,
+                          create_annotation_assist_corpus,
+                          interpret_annotation_assist)
+from themis.nlc import (NLC, classifier_list, classifier_status,
+                        remove_classifiers, train_nlc)
 from themis.plot import generate_curves, plot_curves
-from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
-    QuestionFrequencyFileType, DATE_TIME
+from themis.question import (DATE_TIME, QAPairFileType,
+                             QuestionFrequencyFileType, UsageLogFileType,
+                             extract_question_answer_pairs_from_usage_logs)
 from themis.trec import corpus_from_trec
-from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus, augment_corpus_answers, \
-    augment_corpus_truth
+from themis.xmgr import (CorpusFileType, DownloadCorpusFromXmgrClosure,
+                         TruthFileType, XmgrProject, augment_corpus_answers,
+                         augment_corpus_truth, download_truth_from_xmgr,
+                         examine_truth, validate_answers_with_corpus,
+                         validate_truth_with_corpus)
 
 
 def main():
@@ -468,6 +482,7 @@ def nlc_delete_handler(args):
 
 
 class QuestionSetFileType(CsvFileType):
+
     def __init__(self):
         super(self.__class__, self).__init__([QUESTION])
 
@@ -914,6 +929,10 @@ def util_command(subparsers):
     drop_null = subparsers.add_parser("drop-null", help="drop rows that contain null values from a CSV file")
     drop_null.add_argument("file", type=CsvFileType(), help="CSV file")
     drop_null.set_defaults(func=drop_null_handler)
+    truncate = subparsers.add_parser("truncate-answers", help="Truncates the answer text field of an Annotation Assist file to the specified length.")
+    truncate.add_argument("file", type=CsvFileType(), help="Annotation Assist file")
+    truncate.add_argument("length", type=int, help="The length to shorten the TopAnswerText field to")
+    truncate.set_defaults(func=truncate_answers_handler)
 
 
 def rows_handler(args):
@@ -930,6 +949,13 @@ def drop_null_handler(args):
     print_csv(non_null, index=False)
 
 
+def truncate_answers_handler(args):
+    aa_file = args.file
+
+    aa_file.TopAnswerText = aa_file.TopAnswerText.apply(lambda x: x[0:args.length])
+    print_csv(aa_file)
+
+
 def version_command(subparsers):
     version_parser = subparsers.add_parser("version", help="print version number")
     version_parser.set_defaults(func=version_handler)
@@ -940,6 +966,7 @@ def version_handler(_):
 
 
 class HandlerClosure(object):
+
     def __init__(self, func, parser):
         self.func = func
         self.parser = parser
