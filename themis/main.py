@@ -953,7 +953,7 @@ def truncate_answers_handler(args):
     aa_file = args.file
 
     aa_file.TopAnswerText = aa_file.TopAnswerText.apply(lambda x: x[0:args.length])
-    print_csv(aa_file)
+    print_csv(aa_file, index=False)
 
 
 def version_command(subparsers):
