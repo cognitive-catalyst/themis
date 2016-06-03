@@ -12,7 +12,7 @@ from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, p
     __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID, ensure_directory_exists
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
     compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics, \
-    in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head
+    in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head, kfold_split
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
 from themis.checkpoint import retry
 from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
@@ -704,6 +704,11 @@ def util_command(subparsers):
     drop_null = subparsers.add_parser("drop-null", help="drop rows that contain null values from a CSV file")
     drop_null.add_argument("file", type=CsvFileType(), help="CSV file")
     drop_null.set_defaults(func=drop_null_handler)
+    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K Test and Train folds.")
+    kfold_split.add_argument("file", type=CsvFileType(), help="CSV file")
+    kfold_split.add_argument("--output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
+                                  help="output directory")
+    kfold_split.set_defaults(func=kfold_split_handler)
 
 
 def rows_handler(args):
@@ -727,6 +732,10 @@ def version_command(subparsers):
 
 def version_handler(_):
     print("Themis version %s" % __version__)
+
+
+def kfold_split_handler(args):
+    kfold_split(args.file, args.output_directory, 5)
 
 
 class HandlerClosure(object):

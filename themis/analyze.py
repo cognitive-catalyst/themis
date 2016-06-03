@@ -1,7 +1,9 @@
 import functools
 import itertools
+import math, os
 
 import pandas
+import numpy as np
 from bs4 import BeautifulSoup
 from nltk import word_tokenize, FreqDist
 
@@ -363,6 +365,31 @@ def drop_missing(systems_data):
             logger.warning("Dropping %d of %d question/answer pairs missing information (%0.3f%%)" %
                            (m, n, 100.0 * m / n))
     return systems_data
+
+
+def kfold_split(df, outdir, _folds = 5):
+    # Randomize the order of the input dataframe
+    df = df.iloc[np.random.permutation(len(df))]
+    df = df.reset_index(drop=True)
+    foldSize = int(math.ceil(len(df) / float(_folds)))
+    logger.info("Total records: " + str(len(df)))
+    logger.info("Fold size: " + str(foldSize))
+
+    for x in range(0, _folds):
+        fold_low = x*foldSize
+        fold_high = (x+1)*foldSize
+
+        if fold_high >= len(df):
+            fold_high = len(df)
+
+        test_df = df.iloc[fold_low:fold_high]
+        train_df = df.drop(df.index[fold_low:fold_high])
+
+        test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
+        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=False, encoding='utf-8', index=False)
+
+        logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
+        logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 
 class CollatedFileType(CsvFileType):
