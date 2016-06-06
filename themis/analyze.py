@@ -3,9 +3,10 @@ import itertools
 
 import pandas
 from bs4 import BeautifulSoup
-from nltk import word_tokenize, FreqDist
+from nltk import FreqDist, word_tokenize
 
-from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
+from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
+                    IN_PURVIEW, QUESTION, CsvFileType, logger)
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -231,6 +232,12 @@ def in_purview_disagreement(systems_data):
         logger.warning("%d out of %d questions have non-unanimous in-purview judgments (%0.3f%%)"
                        % (m, n, 100.0 * m / n))
     return purview_disagreement
+
+
+def in_purview_disagreement_evaluate(systems_data):
+    purview_disagreement = in_purview_disagreement(systems_data)
+    print purview_disagreement.head()
+    return
 
 
 def oracle_combination(systems_data, system_names, oracle_name):

@@ -10,24 +10,40 @@ from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
 
-from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
-    __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID, ensure_directory_exists
-from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
-    compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics, \
-    in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head
-from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
+from themis import (ANSWER, ANSWER_ID, CORRECT, DOCUMENT_ID, FREQUENCY,
+                    IN_PURVIEW, QUESTION, CsvFileType, __version__,
+                    configure_logger, ensure_directory_exists, logger,
+                    pretty_print_json, print_csv, to_csv)
+from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
+                            add_judgments_and_frequencies_to_qa_pairs,
+                            analyze_answers, compare_systems,
+                            corpus_statistics, filter_judged_answers,
+                            in_purview_disagreement,
+                            in_purview_disagreement_evaluate,
+                            long_tail_fat_head, oracle_combination,
+                            system_similarity, truth_coverage,
+                            truth_statistics)
+from themis.answer import (AnswersFileType, Solr, answer_questions,
+                           get_answers_from_usage_log)
 from themis.checkpoint import retry
-from themis.fixup import filter_usage_log_by_date, filter_usage_log_by_user_experience, deakin, filter_corpus
-from themis.judge import AnnotationAssistFileType, annotation_assist_qa_input, create_annotation_assist_corpus, \
-    interpret_annotation_assist, JudgmentFileType, augment_usage_log
-from themis.nlc import train_nlc, NLC, classifier_list, classifier_status, remove_classifiers
+from themis.fixup import (deakin, filter_corpus, filter_usage_log_by_date,
+                          filter_usage_log_by_user_experience)
+from themis.judge import (AnnotationAssistFileType, JudgmentFileType,
+                          annotation_assist_qa_input, augment_usage_log,
+                          create_annotation_assist_corpus,
+                          interpret_annotation_assist)
+from themis.nlc import (NLC, classifier_list, classifier_status,
+                        remove_classifiers, train_nlc)
 from themis.plot import generate_curves, plot_curves
-from themis.question import QAPairFileType, UsageLogFileType, extract_question_answer_pairs_from_usage_logs, \
-    QuestionFrequencyFileType, DATE_TIME
+from themis.question import (DATE_TIME, QAPairFileType,
+                             QuestionFrequencyFileType, UsageLogFileType,
+                             extract_question_answer_pairs_from_usage_logs)
 from themis.trec import corpus_from_trec
-from themis.xmgr import CorpusFileType, XmgrProject, DownloadCorpusFromXmgrClosure, download_truth_from_xmgr, \
-    validate_truth_with_corpus, TruthFileType, examine_truth, validate_answers_with_corpus, augment_corpus_answers, \
-    augment_corpus_truth
+from themis.xmgr import (CorpusFileType, DownloadCorpusFromXmgrClosure,
+                         TruthFileType, XmgrProject, augment_corpus_answers,
+                         augment_corpus_truth, download_truth_from_xmgr,
+                         examine_truth, validate_answers_with_corpus,
+                         validate_truth_with_corpus)
 
 
 def main():
@@ -468,6 +484,7 @@ def nlc_delete_handler(args):
 
 
 class QuestionSetFileType(CsvFileType):
+
     def __init__(self):
         super(self.__class__, self).__init__([QUESTION])
 
@@ -764,20 +781,39 @@ def analyze_command(parser, subparsers):
     long_tail_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                                   help="combined system answers and judgments created by 'analyze collate'")
     long_tail_parser.set_defaults(func=long_tail_handler)
+
     # Find disagreement in purview judgments.
-    purview_disagreement_parser = subparsers.add_parser("purview",
-                                                        formatter_class=Raw,
-                                                        description=textwrap.dedent("""
+    purview_disagreement_parser = subparsers.add_parser("purview")
+    purview_disagreement_subparsers = purview_disagreement_parser.add_subparsers(description="analyze prurview disagreement")
+
+    # Inspect purview disagreement by writing to a file
+    purview_inspect_parser = purview_disagreement_subparsers.add_parser("inspect",
+                                                                        formatter_class=Raw,
+                                                                        description=textwrap.dedent("""
     Return collated data where in-purview judgments are not unanimous for a question.
 
     These questions' purview should be rejudged to make them consistent."""),
-                                                        help="find non-unanimous in-purview judgments")
-    purview_disagreement_parser.add_argument("collated", type=CollatedFileType(),
-                                             help="combined system answers and judgments created by 'analyze collate'")
-    purview_disagreement_parser.set_defaults(func=purview_disagreement_handler)
+                                                                        help="find non-unanimous in-purview judgments")
 
+    purview_inspect_parser.add_argument("collated", type=CollatedFileType(),
+                                        help="combined system answers and judgments created by 'analyze collate'")
+    purview_inspect_parser.set_defaults(func=purview_disagreement_handler)
+
+    purview_evaluate_parser = purview_disagreement_subparsers.add_parser("evaluate",
+                                                                         formatter_class=Raw,
+                                                                         description=textwrap.dedent("""
+    Return collated data where in-purview judgments are not unanimous for a question.
+
+    These questions' purview should be rejudged to make them consistent."""),
+                                                                         help="evaluate non-unanimous in-purview judgments")
+
+    purview_evaluate_parser.add_argument("collated", type=CollatedFileType(),
+                                         help="combined system answers and judgments created by 'analyze collate'")
+    purview_evaluate_parser.set_defaults(func=purview_disagreement_handler)
 
 # noinspection PyTypeChecker
+
+
 def collate_handler(parser, args):
     labeled_qa_pairs = answer_labels(parser, args)
     judgments = pandas.concat(args.judgments)
@@ -796,7 +832,7 @@ def collate_handler(parser, args):
         if m:
             logger.warning("%d question/answer pairs out of %d missing %s (%0.3f%%)" % (m, n, s, 100.0 * m / n))
     # This will print a warning if any in-purview judgments are not unanimous for a given question.
-    in_purview_disagreement(collated)
+    in_agreement(collated)
     print_csv(CollatedFileType.output_format(collated))
 
 
@@ -905,6 +941,11 @@ def purview_disagreement_handler(args):
     print_csv(CollatedFileType.output_format(purview_disagreement))
 
 
+def purview_disagreement_evaluate_handler(args):
+    purview_disagreement = in_purview_disagreement_evaluate(args.collated)
+    # print_csv(CollatedFileType.output_format(purview_disagreement))
+
+
 def util_command(subparsers):
     util_parser = subparsers.add_parser("util", help="various utilities")
     subparsers = util_parser.add_subparsers(description="various utilities")
@@ -940,6 +981,7 @@ def version_handler(_):
 
 
 class HandlerClosure(object):
+
     def __init__(self, func, parser):
         self.func = func
         self.parser = parser
