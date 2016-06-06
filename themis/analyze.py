@@ -1,12 +1,14 @@
 import functools
 import itertools
+import os.path
+import textwrap
 
 import pandas
 from bs4 import BeautifulSoup
 from nltk import FreqDist, word_tokenize
 
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
-                    IN_PURVIEW, QUESTION, CsvFileType, logger)
+                    IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -234,10 +236,64 @@ def in_purview_disagreement(systems_data):
     return purview_disagreement
 
 
+def _get_in_purview_judgment(question):
+    judgment = raw_input(textwrap.dedent("""
+    ******** JUDGE THE PURVIEW OF THE FOLLOWING QUESTION ********
+    QUESTION:  {0}
+    (1) IN PURVIEW
+    (2) OUT OF PURVIEW
+
+    YOUR JUDGMENT: """).format(question))
+
+    if judgment == '1':
+        return True
+    elif judgment == '2':
+        return False
+    else:
+        return _get_in_purview_judgment(question)
+
+
+def _judge_answer(row):
+    judgment = raw_input(textwrap.dedent("""
+    ******** JUDGE THE ANSWER TO THE FOLLOWING QUESTION ********
+    QUESTION:  {0}
+    ANSWER:    {1}
+    (1) CORRECT
+    (2) INCORRECT
+
+    YOUR JUDGMENT: """).format(row[1][QUESTION], row[1][ANSWER]))
+
+    if judgment == '1':
+        return True
+    elif judgment == '2':
+        return False
+    else:
+        return _judge_answer(row)
+
+
 def in_purview_disagreement_evaluate(systems_data):
     purview_disagreement = in_purview_disagreement(systems_data)
-    print purview_disagreement.head()
-    return
+
+    questions_to_judge = purview_disagreement[QUESTION].unique()
+    for question in questions_to_judge:
+        purview_judgment = _get_in_purview_judgment(question)
+
+        current_question_rows = systems_data[systems_data[QUESTION] == question]
+        for row in current_question_rows.iterrows():
+            index = row[0]
+            original_judgment = row[1]["In Purview"]
+
+            if purview_judgment != original_judgment:
+                if purview_judgment:
+                    systems_data.ix[index, IN_PURVIEW] = True
+                    systems_data.ix[index, CORRECT] = _judge_answer(row)
+                else:
+                    systems_data.ix[index, IN_PURVIEW] = False
+                    systems_data.ix[index, CORRECT] = False
+            to_csv("collate.eval.csv", systems_data, index=False)
+        # break
+    # print systems_data[systems_data[QUESTION] == question
+    return systems_data
 
 
 def oracle_combination(systems_data, system_names, oracle_name):
@@ -381,14 +437,18 @@ class CollatedFileType(CsvFileType):
         super(self.__class__, self).__init__(self.__class__.columns)
 
     def __call__(self, filename):
-        collated = super(self.__class__, self).__call__(filename)
-        m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
-        if m:
-            n = len(collated)
-            logger.warning(
-                "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
-                % (m, n, filename, 100.0 * m / n))
-        return collated
+        if os.path.isfile(filename):
+            collated = super(self.__class__, self).__call__(filename)
+            m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
+            if m:
+                n = len(collated)
+                logger.warning(
+                    "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
+                    % (m, n, filename, 100.0 * m / n))
+            return collated
+        else:
+            logger.info("{0} does not exist".format(filename))
+            return None
 
     @classmethod
     def output_format(cls, collated):

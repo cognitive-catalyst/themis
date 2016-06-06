@@ -10,8 +10,8 @@ from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
 
-from themis import (ANSWER, ANSWER_ID, CORRECT, DOCUMENT_ID, FREQUENCY,
-                    IN_PURVIEW, QUESTION, CsvFileType, __version__,
+from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, DOCUMENT_ID,
+                    FREQUENCY, IN_PURVIEW, QUESTION, CsvFileType, __version__,
                     configure_logger, ensure_directory_exists, logger,
                     pretty_print_json, print_csv, to_csv)
 from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
@@ -809,7 +809,10 @@ def analyze_command(parser, subparsers):
 
     purview_evaluate_parser.add_argument("collated", type=CollatedFileType(),
                                          help="combined system answers and judgments created by 'analyze collate'")
-    purview_evaluate_parser.set_defaults(func=purview_disagreement_handler)
+
+    purview_evaluate_parser.add_argument("-o", "--output", dest="output", type=CollatedFileType(), default='collate.eval.csv',
+                                         help="output file for this command, will also store intermediate results")
+    purview_evaluate_parser.set_defaults(func=purview_disagreement_evaluate_handler)
 
 # noinspection PyTypeChecker
 
@@ -942,8 +945,25 @@ def purview_disagreement_handler(args):
 
 
 def purview_disagreement_evaluate_handler(args):
-    purview_disagreement = in_purview_disagreement_evaluate(args.collated)
-    # print_csv(CollatedFileType.output_format(purview_disagreement))
+    collated = args.collated
+    output_file = args.output
+
+    if output_file is not None:
+        if output_file[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]].equals(collated[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]]):
+            logger.info('Output file is intermediate. Continuing purview assessment.')
+            evaluate_input = output_file
+        else:
+            logger.info('Output file is not a match to collated input. Starting purview assessment.')
+            evaluate_input = collated
+    else:
+        print 'else here'
+
+        logger.info('Output file does not currently exist. Starting purview assessment.')
+        evaluate_input = collated
+
+    evaluated = in_purview_disagreement_evaluate(evaluate_input)
+    logger.info("All question purviews are in agreement")
+    to_csv("collate.eval.csv", evaluated, index=False)
 
 
 def util_command(subparsers):
