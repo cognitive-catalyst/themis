@@ -13,6 +13,18 @@ SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
 
+def __standardize_confidence(system):
+    """
+    Takes a dataframe of a SINGLE SYSTEM with associated CONFIDENCE scores and standardizes the confidence
+    values using the percentile in the list as the new confidence.
+
+    :param system: dataframe containing rows of a single system that has a CONFIDENCE column present.
+    :return: a Series containing the standardized confidence.
+    :rtype pandas.Series
+    """
+    return system[CONFIDENCE].rank(pct=True)
+
+
 def corpus_statistics(corpus):
     """
     Generate statistics for the corpus.
@@ -253,7 +265,6 @@ def oracle_combination(systems_data, system_names, oracle_name):
     :return: oracle results in collated format
     :rtype: pandas.DataFrame
     """
-
     def log_correct(system_data, name):
         n = len(system_data)
         m = sum(system_data[CORRECT])
@@ -265,7 +276,7 @@ def oracle_combination(systems_data, system_names, oracle_name):
     systems = []
     for system_name in system_names:
         system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
-        system[percentile] = system[CONFIDENCE].rank(pct=True)
+        system[percentile] = __standardize_confidence(system)
         log_correct(system, system_name)
         systems.append(system)
     # Get the questions asked to all the systems.
