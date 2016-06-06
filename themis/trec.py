@@ -1,5 +1,5 @@
 """
-Parse the TREC XML format file in which XMGR stores PAU information.
+Extract the corpus from the TREC XML files in which XMGR stores PAU information.
 
 This is for when we have file system access to the corpus instead of needing to download it.
 """

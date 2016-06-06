@@ -291,7 +291,9 @@ def validate_answers_with_corpus(corpus, qa_pairs, output_directory):
 
 def examine_truth(corpus, truth):
     """
-    Print an HTML file of all the answers in the truth with their corresponding questions
+    Print an HTML file of all the answers in the truth with their corresponding questions.
+
+    This can be used to verify that the truth file makes sense.
 
     :param corpus: corpus containing mapping of answer IDs to answers
     :type corpus: pandas.DataFrame
