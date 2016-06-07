@@ -404,6 +404,9 @@ def kfold_split(df, outdir, _folds = 5):
         logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
         logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
+# NLC as router function
+def nlc_router(url, username, password, collated, oracle_result, name):
+    pass
 
 class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]
