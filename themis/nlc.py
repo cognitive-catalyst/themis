@@ -36,6 +36,9 @@ def train_nlc(url, username, password, truth, name):
         logger.info(pretty_print_json(r))
     return r["classifier_id"]
 
+# NLC as router function
+def train_nlc_router(url, username, password, collated, oracle_result, name):
+    pass
 
 class NLC(object):
     """
