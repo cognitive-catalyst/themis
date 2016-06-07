@@ -914,7 +914,7 @@ def util_command(subparsers):
     drop_null = subparsers.add_parser("drop-null", help="drop rows that contain null values from a CSV file")
     drop_null.add_argument("file", type=CsvFileType(), help="CSV file")
     drop_null.set_defaults(func=drop_null_handler)
-    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K Test and Train folds.")
+    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K (= 5) Test and Train folds.")
     kfold_split.add_argument("file", type=CsvFileType(), help="CSV file")
     kfold_split.add_argument("--output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
                                   help="output directory")
