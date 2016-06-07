@@ -309,6 +309,10 @@ def oracle_combination(systems_data, system_names, oracle_name):
     return oracle
 
 
+def voting_router(systems_data, system_names, voting_name):
+    pass
+
+
 def filter_judged_answers(systems_data, correct, system_names):
     """
     Filter out just the correct or incorrect in-purview answers.

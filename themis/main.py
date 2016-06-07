@@ -21,7 +21,7 @@ from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             in_purview_disagreement, kfold_split,
                             long_tail_fat_head, oracle_combination,
                             system_similarity, truth_coverage,
-                            truth_statistics)
+                            truth_statistics, voting_router)
 from themis.answer import (AnswersFileType, Solr, answer_questions,
                            get_answers_from_usage_log)
 from themis.checkpoint import retry
@@ -792,6 +792,15 @@ def analyze_command(parser, subparsers):
                                              help="combined system answers and judgments created by 'analyze collate'")
     purview_disagreement_parser.set_defaults(func=purview_disagreement_handler)
 
+    voting_router_parser = subparsers.add_parser("voting-router", formatter_class=Raw,
+                                          description=textwrap.dedent("""
+    TODO"""),
+                                          help="answered questions statistics")
+    voting_router_parser.add_argument("collated", type=CollatedFileType(),
+                               help="combined system answers and judgments created by 'analyze collate'")
+    voting_router_parser.add_argument("system_names", metavar="system", nargs="+", help="name of systems to combine")
+    voting_router_parser.set_defaults(func=voting_router_handler)
+
 
 # noinspection PyTypeChecker
 def collate_handler(parser, args):
@@ -861,6 +870,12 @@ def oracle_handler(args):
     oracle_name = "%s Oracle" % "+".join(args.system_names)
     oracle = oracle_combination(args.collated, args.system_names, oracle_name)
     print_csv(OracleFileType.output_format(oracle))
+
+
+def voting_router_handler(args):
+    voting_name = "%s Voting" % "+".join(args.system_names)
+    voting = voting_router(args.collated, args.system_names, voting_name)
+    print_csv(OracleFileType.output_format(voting))
 
 
 def analyze_corpus_handler(args):
