@@ -122,7 +122,9 @@ The following command will generate annotation assist question/answer input for 
     themis judge pairs --questions sample.1000.csv answers.wea.csv answers.solr.csv answers.nlc.csv > annotation-assist.pairs.csv
 
 It is also possible to incorporate previous judgments.
-See the command help for details.
+See the command help for details.  
+
+If the file has fields in TopAnswerText that are too long for the Annotation Assist system, you may truncate them with the `themis util truncate-answers -h` command.
 
 After annotating the answers you can download the results in a file: call it `annotation-assist.judgments.csv`.
 This can be converted into the format used by Themis with the following command.
