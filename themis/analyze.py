@@ -1,7 +1,9 @@
 import functools
 import itertools
+import math, os
 
 import pandas
+import numpy as np
 from bs4 import BeautifulSoup
 from nltk import word_tokenize, FreqDist
 
@@ -9,6 +11,18 @@ from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORREC
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
+
+
+def __standardize_confidence(system):
+    """
+    Takes a dataframe of a SINGLE SYSTEM with associated CONFIDENCE scores and standardizes the confidence
+    values using the percentile in the list as the new confidence.
+
+    :param system: dataframe containing rows of a single system that has a CONFIDENCE column present.
+    :return: a Series containing the standardized confidence.
+    :rtype pandas.Series
+    """
+    return system[CONFIDENCE].rank(pct=True)
 
 
 def corpus_statistics(corpus):
@@ -251,7 +265,6 @@ def oracle_combination(systems_data, system_names, oracle_name):
     :return: oracle results in collated format
     :rtype: pandas.DataFrame
     """
-
     def log_correct(system_data, name):
         n = len(system_data)
         m = sum(system_data[CORRECT])
@@ -263,7 +276,7 @@ def oracle_combination(systems_data, system_names, oracle_name):
     systems = []
     for system_name in system_names:
         system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
-        system[percentile] = system[CONFIDENCE].rank(pct=True)
+        system[percentile] = __standardize_confidence(system)
         log_correct(system, system_name)
         systems.append(system)
     # Get the questions asked to all the systems.
@@ -365,6 +378,31 @@ def drop_missing(systems_data):
             logger.warning("Dropping %d of %d question/answer pairs missing information (%0.3f%%)" %
                            (m, n, 100.0 * m / n))
     return systems_data
+
+
+def kfold_split(df, outdir, _folds = 5):
+    # Randomize the order of the input dataframe
+    df = df.iloc[np.random.permutation(len(df))]
+    df = df.reset_index(drop=True)
+    foldSize = int(math.ceil(len(df) / float(_folds)))
+    logger.info("Total records: " + str(len(df)))
+    logger.info("Fold size: " + str(foldSize))
+
+    for x in range(0, _folds):
+        fold_low = x*foldSize
+        fold_high = (x+1)*foldSize
+
+        if fold_high >= len(df):
+            fold_high = len(df)
+
+        test_df = df.iloc[fold_low:fold_high]
+        train_df = df.drop(df.index[fold_low:fold_high])
+
+        test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
+        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=False, encoding='utf-8', index=False)
+
+        logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
+        logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 
 class CollatedFileType(CsvFileType):

@@ -18,11 +18,13 @@ from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             add_judgments_and_frequencies_to_qa_pairs,
                             analyze_answers, compare_systems,
                             corpus_statistics, filter_judged_answers,
-                            in_purview_disagreement, long_tail_fat_head,
-                            oracle_combination, system_similarity,
-                            truth_coverage, truth_statistics)
+                            in_purview_disagreement, kfold_split,
+                            long_tail_fat_head, oracle_combination,
+                            system_similarity, truth_coverage,
+                            truth_statistics)
 from themis.answer import (AnswersFileType, Solr, answer_questions,
                            get_answers_from_usage_log)
+# >>>>>>> master
 from themis.checkpoint import retry
 from themis.fixup import (deakin, filter_corpus, filter_usage_log_by_date,
                           filter_usage_log_by_user_experience)
@@ -933,6 +935,11 @@ def util_command(subparsers):
     truncate.add_argument("file", type=CsvFileType(), help="Annotation Assist file")
     truncate.add_argument("length", type=int, help="The length to shorten the TopAnswerText field to")
     truncate.set_defaults(func=truncate_answers_handler)
+    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K Test and Train folds.")
+    kfold_split.add_argument("file", type=CsvFileType(), help="CSV file")
+    kfold_split.add_argument("--output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
+                             help="output directory")
+    kfold_split.set_defaults(func=kfold_split_handler)
 
 
 def rows_handler(args):
@@ -963,6 +970,10 @@ def version_command(subparsers):
 
 def version_handler(_):
     print("Themis version %s" % __version__)
+
+
+def kfold_split_handler(args):
+    kfold_split(args.file, args.output_directory, 5)
 
 
 class HandlerClosure(object):
