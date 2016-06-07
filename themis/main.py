@@ -24,7 +24,6 @@ from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             truth_statistics)
 from themis.answer import (AnswersFileType, Solr, answer_questions,
                            get_answers_from_usage_log)
-# >>>>>>> master
 from themis.checkpoint import retry
 from themis.fixup import (deakin, filter_corpus, filter_usage_log_by_date,
                           filter_usage_log_by_user_experience)
@@ -935,7 +934,7 @@ def util_command(subparsers):
     truncate.add_argument("file", type=CsvFileType(), help="Annotation Assist file")
     truncate.add_argument("length", type=int, help="The length to shorten the TopAnswerText field to")
     truncate.set_defaults(func=truncate_answers_handler)
-    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K Test and Train folds.")
+    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K (= 5) Test and Train folds.")
     kfold_split.add_argument("file", type=CsvFileType(), help="CSV file")
     kfold_split.add_argument("--output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
                              help="output directory")
