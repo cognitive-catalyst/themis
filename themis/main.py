@@ -19,7 +19,7 @@ from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             analyze_answers, compare_systems,
                             corpus_statistics, filter_judged_answers,
                             in_purview_disagreement,
-                            in_purview_disagreement_evaluate,
+                            in_purview_disagreement_evaluate, kfold_split,
                             long_tail_fat_head, oracle_combination,
                             system_similarity, truth_coverage,
                             truth_statistics)
@@ -835,7 +835,7 @@ def collate_handler(parser, args):
         if m:
             logger.warning("%d question/answer pairs out of %d missing %s (%0.3f%%)" % (m, n, s, 100.0 * m / n))
     # This will print a warning if any in-purview judgments are not unanimous for a given question.
-    in_agreement(collated)
+    in_purview_disagreement(collated)
     print_csv(CollatedFileType.output_format(collated))
 
 
@@ -975,6 +975,17 @@ def util_command(subparsers):
     drop_null = subparsers.add_parser("drop-null", help="drop rows that contain null values from a CSV file")
     drop_null.add_argument("file", type=CsvFileType(), help="CSV file")
     drop_null.set_defaults(func=drop_null_handler)
+    truncate = subparsers.add_parser("truncate-answers", help="Truncates the answer text field of an Annotation Assist file to the specified length.")
+    truncate.add_argument("file", type=CsvFileType(), help="Annotation Assist file")
+    truncate.add_argument("length", type=int, help="The length to shorten the TopAnswerText field to")
+    truncate.set_defaults(func=truncate_answers_handler)
+    kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K (= 5) Test and Train folds.")
+    kfold_split.add_argument("file", type=CsvFileType(), help="CSV file")
+    kfold_split.add_argument("--training-headers", action='store_true', default=False, dest="training_headers",
+                             help="flag: should training file headers be used? (default = False)")
+    kfold_split.add_argument("output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
+                             help="output directory")
+    kfold_split.set_defaults(func=kfold_split_handler)
 
 
 def rows_handler(args):
@@ -991,6 +1002,13 @@ def drop_null_handler(args):
     print_csv(non_null, index=False)
 
 
+def truncate_answers_handler(args):
+    aa_file = args.file
+
+    aa_file.TopAnswerText = aa_file.TopAnswerText.apply(lambda x: x[0:args.length])
+    print_csv(aa_file, index=False)
+
+
 def version_command(subparsers):
     version_parser = subparsers.add_parser("version", help="print version number")
     version_parser.set_defaults(func=version_handler)
@@ -998,6 +1016,10 @@ def version_command(subparsers):
 
 def version_handler(_):
     print("Themis version %s" % __version__)
+
+
+def kfold_split_handler(args):
+    kfold_split(args.file, args.output_directory, 5, args.training_headers)
 
 
 class HandlerClosure(object):
