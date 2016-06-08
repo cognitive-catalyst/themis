@@ -375,19 +375,8 @@ def oracle_combination(systems_data, system_names, oracle_name):
 
 def _create_combined_fallback_system_at_threshold(default_systems_data, secondary_system_data, threshold):
     # TODO HIIIII docstring...Assumes that the dataframes have the same questions
-    # combined = []
-    # for row in default_systems_data.iterrows():
-    #     if row[1][CONFIDENCE] >= threshold:
-    #         combined.append(row[1])
-    #     else:
-    #         question = row[1][QUESTION]
-    #         fallback_row = secondary_system_data[secondary_system_data[QUESTION] == question].iloc[0]
-    #         combined.append(fallback_row)
-    # return pandas.DataFrame(combined)
-    #
     combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
     combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
-    #
     return pandas.concat([combined_from_default, combined_from_secondary])
 
 
@@ -407,7 +396,7 @@ def fallback_combination(systems_data, default_system, secondary_system):
 
     n = len(unique_confidences)
     best_threshold, best_precision = 0, 0
-    for i, threshold in enumerate(unique_confidences):  # TODO tqdm is lazy
+    for i, threshold in enumerate(unique_confidences):
         combined_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, threshold)
 
         system_precision = precision(combined_system, 0)
@@ -416,8 +405,6 @@ def fallback_combination(systems_data, default_system, secondary_system):
             best_threshold = threshold
         if i % 100 == 0:
             logger.info(percent_complete_message("Computing System Accuracy", i, n))
-        # break
-    # print best_confidence, best_precision
     logger.info(percent_complete_message("Computing System Accuracy", n, n))
 
     logger.info("default system accuracy: {0}".format(precision(default_system_data, 0)))
@@ -425,7 +412,10 @@ def fallback_combination(systems_data, default_system, secondary_system):
     logger.info("combined system accuracy:{0}".format(best_precision))
     logger.info("combined system best threshold:{0}".format(best_threshold))
 
-    return
+    best_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, best_threshold)
+    best_system[ANSWERING_SYSTEM] = best_system[SYSTEM]
+    best_system[SYSTEM] = "{0}_FALLBACK_{1}_AT_{2}".format(default_system, secondary_system, str(best_threshold)[:4])
+    return best_system
 
 
 def filter_judged_answers(systems_data, correct, system_names):

@@ -897,9 +897,8 @@ def oracle_handler(args):
 
 
 def fallback_handler(args):
-
     fallback = fallback_combination(args.collated, args.default_system, args.secondary_system)
-    # print_csv(OracleFileType.output_format(oracle))
+    print_csv(OracleFileType.output_format(fallback))
 
 
 def analyze_corpus_handler(args):
