@@ -457,17 +457,17 @@ def kfold_split(df, outdir, _folds=5, _training_header=False):
         fold_low = x * foldSize
         fold_high = (x + 1) * foldSize
 
-        if fold_high >= len(df):
-            fold_high = len(df)
+    if fold_high >= len(df):
+        fold_high = len(df)
 
-        test_df = df.iloc[fold_low:fold_high]
-        train_df = df.drop(df.index[fold_low:fold_high])
+    test_df = df.iloc[fold_low:fold_high]
+    train_df = df.drop(df.index[fold_low:fold_high])
 
-        test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
-        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
+    test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
+    train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
 
-        logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
-        logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
+    logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
+    logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 
 class CollatedFileType(CsvFileType):
