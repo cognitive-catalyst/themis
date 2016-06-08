@@ -11,7 +11,9 @@ from bs4 import BeautifulSoup
 from nltk import FreqDist, word_tokenize
 
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
-                    IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
+                    IN_PURVIEW, QUESTION, CsvFileType, logger,
+                    percent_complete_message, to_csv)
+from themis.metrics import precision
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -306,8 +308,6 @@ def in_purview_disagreement_evaluate(systems_data):
                     systems_data.ix[index, IN_PURVIEW] = False
                     systems_data.ix[index, CORRECT] = False
             to_csv("collate.eval.csv", systems_data, index=False)
-        # break
-    # print systems_data[systems_data[QUESTION] == question
     return systems_data
 
 
@@ -371,6 +371,61 @@ def oracle_combination(systems_data, system_names, oracle_name):
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
     log_correct(oracle, oracle_name)
     return oracle
+
+
+def _create_combined_fallback_system_at_threshold(default_systems_data, secondary_system_data, threshold):
+    # TODO HIIIII docstring...Assumes that the dataframes have the same questions
+    # combined = []
+    # for row in default_systems_data.iterrows():
+    #     if row[1][CONFIDENCE] >= threshold:
+    #         combined.append(row[1])
+    #     else:
+    #         question = row[1][QUESTION]
+    #         fallback_row = secondary_system_data[secondary_system_data[QUESTION] == question].iloc[0]
+    #         combined.append(fallback_row)
+    # return pandas.DataFrame(combined)
+    #
+    combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
+    combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
+    #
+    return pandas.concat([combined_from_default, combined_from_secondary])
+
+
+def fallback_combination(systems_data, default_system, secondary_system):
+    # TODO: docstring
+    default_system_data = systems_data[systems_data[SYSTEM] == default_system]
+    secondary_system_data = systems_data[systems_data[SYSTEM] == secondary_system]
+
+    intersecting_questions = set(default_system_data[QUESTION]).intersection(set(secondary_system_data[QUESTION]))
+
+    default_system_data = default_system_data[default_system_data[QUESTION].isin(intersecting_questions)]
+    secondary_system_data = secondary_system_data[secondary_system_data[QUESTION].isin(intersecting_questions)]
+
+    logger.warn("{0} out of BLAH BLAH BLAH NEED to DO")  # TODO
+
+    unique_confidences = default_system_data[CONFIDENCE].unique()
+
+    n = len(unique_confidences)
+    best_threshold, best_precision = 0, 0
+    for i, threshold in enumerate(unique_confidences):  # TODO tqdm is lazy
+        combined_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, threshold)
+
+        system_precision = precision(combined_system, 0)
+        if system_precision > best_precision:
+            best_precision = system_precision
+            best_threshold = threshold
+        if i % 100 == 0:
+            logger.info(percent_complete_message("Computing System Accuracy", i, n))
+        # break
+    # print best_confidence, best_precision
+    logger.info(percent_complete_message("Computing System Accuracy", n, n))
+
+    logger.info("default system accuracy: {0}".format(precision(default_system_data, 0)))
+    logger.info("secondary system accuracy: {0}".format(precision(secondary_system_data, 0)))
+    logger.info("combined system accuracy:{0}".format(best_precision))
+    logger.info("combined system best threshold:{0}".format(best_threshold))
+
+    return
 
 
 def filter_judged_answers(systems_data, correct, system_names):
