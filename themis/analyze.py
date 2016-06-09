@@ -374,23 +374,49 @@ def oracle_combination(systems_data, system_names, oracle_name):
 
 
 def _create_combined_fallback_system_at_threshold(default_systems_data, secondary_system_data, threshold):
-    # TODO HIIIII docstring...Assumes that the dataframes have the same questions
+    """
+    Combine results from two systems into a single fallback system. The default system will answer the question if
+    the confidence is above the given threshold.
+
+    :param default_systems_data: collated results for the default system (if confidence > t)
+    :type default_systems_data: pandas.DataFrame
+    :param secondary_system_data: collated results for the secondary system (if default_confidence < t)
+    :type default_system: pandas.DataFrame
+    :param threshold: (t) the confidence threshold to determine what system answers the question
+    :type secondary_system: float
+    :return: Fallback results in collated format
+    :rtype: pandas.DataFrame
+    """
     combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
     combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
     return pandas.concat([combined_from_default, combined_from_secondary])
 
 
 def fallback_combination(systems_data, default_system, secondary_system):
-    # TODO: docstring
+    """
+    Combine results from two systems into a single fallback system. The default system will answer the question if
+    the confidence is above a certain threshold. This method will find the optimal confidence threshold.
+
+    :param systems_data: collated results for the input systems
+    :type systems_data: pandas.DataFrame
+    :param default_system: the name of the default system (if confidence > t)
+    :type default_system: str
+    :param secondary_system: the name of the fallback system (if default_confidence < t)
+    :type secondary_system: str
+    :return: Fallback results in collated format
+    :rtype: pandas.DataFrame
+    """
     default_system_data = systems_data[systems_data[SYSTEM] == default_system]
     secondary_system_data = systems_data[systems_data[SYSTEM] == secondary_system]
 
     intersecting_questions = set(default_system_data[QUESTION]).intersection(set(secondary_system_data[QUESTION]))
 
+    logger.warn("{0} questions in default system".format(len(default_system_data)))
+    logger.warn("{0} questions in secondary system".format(len(secondary_system_data)))
+    logger.warn("{0} questions in overlapping set".format(len(intersecting_questions)))
+
     default_system_data = default_system_data[default_system_data[QUESTION].isin(intersecting_questions)]
     secondary_system_data = secondary_system_data[secondary_system_data[QUESTION].isin(intersecting_questions)]
-
-    logger.warn("{0} out of BLAH BLAH BLAH NEED to DO")  # TODO
 
     unique_confidences = default_system_data[CONFIDENCE].unique()
 
@@ -403,14 +429,14 @@ def fallback_combination(systems_data, default_system, secondary_system):
         if system_precision > best_precision:
             best_precision = system_precision
             best_threshold = threshold
-        if i % 100 == 0:
-            logger.info(percent_complete_message("Computing System Accuracy", i, n))
-    logger.info(percent_complete_message("Computing System Accuracy", n, n))
+        # if i % 100 == 0:
+            # logger.info(percent_complete_message("Computing System Accuracy", i, n))
+    # logger.info(percent_complete_message("Computing System Accuracy", n, n))
 
-    logger.info("default system accuracy: {0}".format(precision(default_system_data, 0)))
-    logger.info("secondary system accuracy: {0}".format(precision(secondary_system_data, 0)))
-    logger.info("combined system accuracy:{0}".format(best_precision))
-    logger.info("combined system best threshold:{0}".format(best_threshold))
+    logger.info("Default system accuracy:   {0}%".format(str(precision(default_system_data, 0) * 100)[:4]))
+    logger.info("Secondary system accuracy: {0}%".format(str(precision(secondary_system_data, 0) * 100)[:4]))
+    logger.info("Combined system accuracy:  {0}%".format(str(best_precision * 100)[:4]))
+    logger.info("Combined system best threshold:{0}".format(best_threshold))
 
     best_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, best_threshold)
     best_system[ANSWERING_SYSTEM] = best_system[SYSTEM]
