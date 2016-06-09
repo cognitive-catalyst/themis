@@ -116,7 +116,7 @@ def questions_attempted(judgments, t):
         logger.warning("No in-purview questions attempted at threshold level %0.3f" % t)
         return None
 
-
+# TODO: Deprecated...use metrics.py
 def confidence_thresholds(judgments, add_max):
     ts = judgments[CONFIDENCE].sort_values(ascending=False).unique()
     if add_max:
