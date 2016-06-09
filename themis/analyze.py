@@ -384,13 +384,14 @@ def drop_missing(systems_data):
     return systems_data
 
 
-def kfold_split(df, outdir, _folds = 5):
+def kfold_split(df, outdir, _folds = 5, _training_header = False):
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
     foldSize = int(math.ceil(len(df) / float(_folds)))
     logger.info("Total records: " + str(len(df)))
     logger.info("Fold size: " + str(foldSize))
+    logger.info("Results written to output folder " + outdir)
 
     for x in range(0, _folds):
         fold_low = x*foldSize
@@ -403,7 +404,7 @@ def kfold_split(df, outdir, _folds = 5):
         train_df = df.drop(df.index[fold_low:fold_high])
 
         test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
-        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=False, encoding='utf-8', index=False)
+        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
 
         logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
         logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))

@@ -951,7 +951,9 @@ def util_command(subparsers):
     truncate.set_defaults(func=truncate_answers_handler)
     kfold_split = subparsers.add_parser("kfold-split", help="split a CSV file into K (= 5) Test and Train folds.")
     kfold_split.add_argument("file", type=CsvFileType(), help="CSV file")
-    kfold_split.add_argument("--output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
+    kfold_split.add_argument("--training-headers", action='store_true', default=False, dest="training_headers",
+                             help="flag: should training file headers be used? (default = False)")
+    kfold_split.add_argument("output_directory", metavar="OUTPUT_DIRECTORY", type=str, default=".",
                              help="output directory")
     kfold_split.set_defaults(func=kfold_split_handler)
 
@@ -987,7 +989,7 @@ def version_handler(_):
 
 
 def kfold_split_handler(args):
-    kfold_split(args.file, args.output_directory, 5)
+    kfold_split(args.file, args.output_directory, 5, args.training_headers)
 
 
 class HandlerClosure(object):

@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy
 import pandas
 
-from themis import CORRECT, IN_PURVIEW, CONFIDENCE, FREQUENCY, CsvFileType, QUESTION, logger
+from themis import (CONFIDENCE, CORRECT, FREQUENCY, IN_PURVIEW, QUESTION,
+                    CsvFileType, logger)
 from themis.analyze import SYSTEM, drop_missing
 
 THRESHOLD = "Threshold"
@@ -90,6 +91,8 @@ def precision_curve(judgments):
     ts, precision_values, attempted_values = zip(*xs)  # zip(*x) is the inverse of zip(x)
     curve = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
     return curve
+
+# TODO: Deprecated...use metrics.py
 
 
 def precision(judgments, t):
