@@ -286,7 +286,7 @@ def _judge_answer(row):
         return _judge_answer(row)
 
 
-def in_purview_disagreement_evaluate(systems_data):
+def in_purview_disagreement_evaluate(systems_data, output_file):
     purview_disagreement = in_purview_disagreement(systems_data)
 
     questions_to_judge = purview_disagreement[QUESTION].unique()
@@ -305,7 +305,7 @@ def in_purview_disagreement_evaluate(systems_data):
                 else:
                     systems_data.ix[index, IN_PURVIEW] = False
                     systems_data.ix[index, CORRECT] = False
-            to_csv("collate.eval.csv", systems_data, index=False)
+            to_csv(output_file, systems_data, index=False)
         # break
     # print systems_data[systems_data[QUESTION] == question
     return systems_data

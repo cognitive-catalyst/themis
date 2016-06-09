@@ -965,7 +965,7 @@ def purview_disagreement_evaluate_handler(args):
         logger.info('Output file ({0}) does not currently exist. Starting purview assessment.'.format(output_file))
         evaluate_input = collated
 
-    evaluated = in_purview_disagreement_evaluate(evaluate_input)
+    evaluated = in_purview_disagreement_evaluate(evaluate_input, output_file)
     logger.info("All question purviews are in agreement")
     to_csv(output_file, evaluated, index=False)
     logger.info("Output written to {0}".format(output_file))
