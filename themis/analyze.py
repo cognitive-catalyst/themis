@@ -315,7 +315,6 @@ def voting_router(systems_data, system_names, voting_name):
     """
     Combine results from multiple systems into a single that uses voting to decide which system should answer.
 
-
     :param systems_data: collated results for all systems.
     :type systems_data: pandas.DataFrame
     :param system_names: names of systems to combine
@@ -330,34 +329,54 @@ def voting_router(systems_data, system_names, voting_name):
         m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
 
-    percentile = "Percentile"
+    def precision_grounded_confidence(ts, ps, qas, confidence):
+        def find_nearest_index(array,value):
+            idx = (np.abs(array-value)).argmin()
+            return idx
+
+        # lookup the associated precision & QA for the confidence, and return a revised confidence
+        t_index = find_nearest_index(ts,confidence)
+        precision_t = ps[t_index]
+        qa_t = qas[t_index]
+        #print "VALS: conf = " + str(confidence) + ",t_index = " + str(t_index) + " ,t = " + str(ts[t_index]) \
+        #      + ", prec = " + str(precision_t) + ", QA = " + str(qa_t) + ", REV = " + str((1 - qa_t) * precision_t)
+        return (1 - qa_t) * precision_t
+
     systems_data = drop_missing(systems_data)
-    # Extract the systems of interest and map confidences to percentile rank.
+    # Calculate the precision and question_attempted for each threshold for every system
     systems = []
+    system_ts = []
+    system_ps = []
+    system_qas = []
     for system_name in system_names:
         system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
-        system[percentile] = __standardize_confidence(system)
         log_correct(system, system_name)
         systems.append(system)
-
-    # Calculate the precision and question_attempted for each threshold for every system
-    system_thresholds = []
-    system_precisions = []
-    system_questions_attempted = []
-    for system in systems:
         ts = confidence_thresholds(system, False)
-        precision_values = [(t, precision(system, t)) for t in ts]
-        attempted_values = [(t, questions_attempted(system, t)) for t in ts]
-        system_thresholds.append(ts)
-        system_precisions.append(precision_values)
-        system_questions_attempted.append(attempted_values)
+        precision_values = [precision(system, t) for t in ts]
+        attempted_values = [questions_attempted(system, t) for t in ts]
+        system_ts.append(ts)
+        system_ps.append(precision_values)
+        system_qas.append(attempted_values)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
-    # Start the voting results with a copy of one of the systems.
+    # Start the voting results with a copy of one of the systems using only the intersecting questions
     voting = systems[0].loc[questions].copy()
-    voting = voting.drop([ANSWER, percentile], axis="columns")
+    voting = voting.drop([ANSWER, CONFIDENCE, CORRECT], axis="columns")
     voting[SYSTEM] = voting_name
+
+    #voting["precisionAtPoint"] = voting.apply(lambda x: precision(systems[0],x[CONFIDENCE]), axis=1)
+    #voting["QA_AtPoint"] = voting.apply(lambda x: questions_attempted(systems[0],x[CONFIDENCE]), axis=1)
+    #voting["revised_Conf"] = voting.apply(lambda x: precision_grounded_confidence(system_ts[0],
+    #                                                                              system_ps[0],
+    #                                                                              system_qas[0],
+    #                                                                              x[CONFIDENCE]), axis=1)
+    print voting.head(2)
+
+
+
+    return voting
 
 
 def filter_judged_answers(systems_data, correct, system_names):
