@@ -9,6 +9,8 @@ from nltk import word_tokenize, FreqDist
 
 from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
 
+from themis.metrics import precision, questions_attempted, confidence_thresholds
+
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
@@ -310,7 +312,52 @@ def oracle_combination(systems_data, system_names, oracle_name):
 
 
 def voting_router(systems_data, system_names, voting_name):
-    pass
+    """
+    Combine results from multiple systems into a single that uses voting to decide which system should answer.
+
+
+    :param systems_data: collated results for all systems.
+    :type systems_data: pandas.DataFrame
+    :param system_names: names of systems to combine
+    :type system_names: list of str
+    :param voting_name: the name of the combined system
+    :type voting_name: str
+    :return: voting system results in collated format
+    :rtype: pandas.DataFrame
+    """
+    def log_correct(system_data, name):
+        n = len(system_data)
+        m = sum(system_data[CORRECT])
+        logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
+
+    percentile = "Percentile"
+    systems_data = drop_missing(systems_data)
+    # Extract the systems of interest and map confidences to percentile rank.
+    systems = []
+    for system_name in system_names:
+        system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
+        system[percentile] = __standardize_confidence(system)
+        log_correct(system, system_name)
+        systems.append(system)
+
+    # Calculate the precision and question_attempted for each threshold for every system
+    system_thresholds = []
+    system_precisions = []
+    system_questions_attempted = []
+    for system in systems:
+        ts = confidence_thresholds(system, False)
+        precision_values = [(t, precision(system, t)) for t in ts]
+        attempted_values = [(t, questions_attempted(system, t)) for t in ts]
+        system_thresholds.append(ts)
+        system_precisions.append(precision_values)
+        system_questions_attempted.append(attempted_values)
+
+    # Get the questions asked to all the systems.
+    questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
+    # Start the voting results with a copy of one of the systems.
+    voting = systems[0].loc[questions].copy()
+    voting = voting.drop([ANSWER, percentile], axis="columns")
+    voting[SYSTEM] = voting_name
 
 
 def filter_judged_answers(systems_data, correct, system_names):
