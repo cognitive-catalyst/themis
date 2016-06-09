@@ -954,15 +954,15 @@ def purview_disagreement_evaluate_handler(args):
     output_system_data = collate_file_type(output_file)
     if output_system_data is not None:
         if output_system_data[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]].equals(collated[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]]):
-            logger.info('Output file is intermediate. Continuing purview assessment.')
+            logger.info('Output file ({0}) is intermediate. Continuing purview assessment.'.format(output_file))
             evaluate_input = output_system_data
         else:
-            logger.info('Output file is not a match to collated input. Starting purview assessment.')
+            logger.info('Output file ({0}) is not a match to collated input. Starting purview assessment.'.format(output_file))
             evaluate_input = collated
     else:
         print 'else here'
 
-        logger.info('Output file does not currently exist. Starting purview assessment.')
+        logger.info('Output file ({0}) does not currently exist. Starting purview assessment.'.format(output_file))
         evaluate_input = collated
 
     evaluated = in_purview_disagreement_evaluate(evaluate_input)
