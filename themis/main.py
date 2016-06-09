@@ -10,13 +10,13 @@ from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
 
-
 from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, pretty_print_json, logger, print_csv, \
     __version__, FREQUENCY, ANSWER, IN_PURVIEW, CORRECT, DOCUMENT_ID, ensure_directory_exists
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
     compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics, \
     in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head, kfold_split, nlc_router
 from themis.answer import answer_questions, Solr, get_answers_from_usage_log, AnswersFileType
+
 
 from themis import (ANSWER, ANSWER_ID, CORRECT, DOCUMENT_ID, FREQUENCY,
                     IN_PURVIEW, QUESTION, CsvFileType, __version__,
@@ -32,7 +32,6 @@ from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             truth_statistics)
 from themis.answer import (AnswersFileType, Solr, answer_questions,
                            get_answers_from_usage_log)
-
 from themis.checkpoint import retry
 from themis.fixup import (deakin, filter_corpus, filter_usage_log_by_date,
                           filter_usage_log_by_user_experience)
