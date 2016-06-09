@@ -105,7 +105,7 @@ def precision(judgments, t):
         logger.warning("No in-purview questions at threshold level %0.3f" % t)
         return None
 
-
+# TODO: Deprecated...use metrics.py
 def questions_attempted(judgments, t):
     s = judgments[judgments[CONFIDENCE] >= t]
     in_purview_attempted = sum(s[s[IN_PURVIEW]][FREQUENCY])
