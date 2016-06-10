@@ -389,6 +389,7 @@ def _create_combined_fallback_system_at_threshold(default_systems_data, secondar
     """
     combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
     combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
+
     return pandas.concat([combined_from_default, combined_from_secondary])
 
 
@@ -429,18 +430,20 @@ def fallback_combination(systems_data, default_system, secondary_system):
         if system_precision > best_precision:
             best_precision = system_precision
             best_threshold = threshold
-        # if i % 100 == 0:
-            # logger.info(percent_complete_message("Computing System Accuracy", i, n))
-    # logger.info(percent_complete_message("Computing System Accuracy", n, n))
 
     logger.info("Default system accuracy:   {0}%".format(str(precision(default_system_data, 0) * 100)[:4]))
     logger.info("Secondary system accuracy: {0}%".format(str(precision(secondary_system_data, 0) * 100)[:4]))
     logger.info("Combined system accuracy:  {0}%".format(str(best_precision * 100)[:4]))
-    logger.info("Combined system best threshold:{0}".format(best_threshold))
+
+    logger.info("Combined system best threshold: {0}".format(best_threshold))
 
     best_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, best_threshold)
     best_system[ANSWERING_SYSTEM] = best_system[SYSTEM]
     best_system[SYSTEM] = "{0}_FALLBACK_{1}_AT_{2}".format(default_system, secondary_system, str(best_threshold)[:4])
+
+    logger.info("Questions answered by {0}: {1}%".format(default_system, str(100 * float(len(best_system[best_system[ANSWERING_SYSTEM] == default_system])) / len(best_system))[:4]))
+
+    best_system[CONFIDENCE] = __standardize_confidence(best_system)
     return best_system
 
 
