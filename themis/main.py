@@ -873,7 +873,7 @@ def oracle_handler(args):
 
 
 def voting_router_handler(args):
-    voting_name = "%s Voting" % "+".join(args.system_names)
+    voting_name = "%s_Voting" % "+".join(args.system_names)
     voting = voting_router(args.collated, args.system_names, voting_name)
     print_csv(OracleFileType.output_format(voting))
 

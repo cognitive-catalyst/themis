@@ -329,39 +329,35 @@ def voting_router(systems_data, system_names, voting_name):
         m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
 
-    def precision_grounded_confidence(ts, ps, qas, confidence):
-        def find_nearest_index(array,value):
-            idx = (np.abs(array-value)).argmin()
-            return idx
-
-        # lookup the associated precision & QA for the confidence, and return a revised confidence
-        t_index = find_nearest_index(ts,confidence)
+    def precision_grounded_confidence(ts, ps, qas, confidence, method='precision_only'):
+        # lookup the associated precision & QA for the confidence using the closest threshold value (in case of mismatches)
+        t_index = (np.abs(ts - confidence)).argmin()
         precision_t = ps[t_index]
         qa_t = qas[t_index]
-        #print "VALS: conf = " + str(confidence) + ",t_index = " + str(t_index) + " ,t = " + str(ts[t_index]) \
-        #      + ", prec = " + str(precision_t) + ", QA = " + str(qa_t) + ", REV = " + str((1 - qa_t) * precision_t)
-        return (1 - qa_t) * precision_t
+        if method == 'inverse_qa_p_corrected':
+            return (1 - qa_t) * precision_t
+        else:
+            return precision_t
 
     pandas.set_option('display.width', 250)
 
     systems_data = drop_missing(systems_data)
-    # Calculate the precision and question_attempted for each threshold for every system
+
     systems = []
-    system_ts = []
-    system_ps = []
-    system_qas = []
+
     for system_name in system_names:
         system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
         log_correct(system, system_name)
         systems.append(system)
+
+        # Calculate the precision and question_attempted for each threshold, use it for standardized confidences
         ts = confidence_thresholds(system, False)
-        precision_values = [precision(system, t) for t in ts]
-        attempted_values = [questions_attempted(system, t) for t in ts]
-        system_ts.append(ts)
-        system_ps.append(precision_values)
-        system_qas.append(attempted_values)
-        system['pgc'] = system.apply(lambda x: precision_grounded_confidence(ts,precision_values,attempted_values,x[CONFIDENCE]), axis=1)
-        print system.head(5)
+        ps = [precision(system, t) for t in ts]
+        qas = [questions_attempted(system, t) for t in ts]
+
+        system['pgc'] = system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+                                                                             method='precision_only'), axis=1)
+        #print system.head(5)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
@@ -375,7 +371,8 @@ def voting_router(systems_data, system_names, voting_name):
     system_pgcs = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True), pgcs)
     rows = [True for x in range(0,len(voting))]
     voting.loc[rows, ANSWERING_SYSTEM] = system_pgcs[rows].idxmax(axis=1)
-    voting.loc[rows, 'PrecisionGroundedConf'] = system_pgcs[rows].max(axis=1)
+    voting.loc[rows, CONFIDENCE] = system_pgcs[rows].max(axis=1)
+    voting.loc[rows, 'PGC'] = system_pgcs[rows].max(axis=1)
 
     voting = voting.reset_index()
     voting[ANSWER] = pandas.merge(systems_data, voting,
@@ -384,7 +381,7 @@ def voting_router(systems_data, system_names, voting_name):
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[CORRECT]
 
     log_correct(voting, voting_name)
-    print voting.head(5)
+    #print voting.head(5)
     return voting
 
 
