@@ -814,13 +814,16 @@ def analyze_command(parser, subparsers):
                                                                          description=textwrap.dedent("""
     Return collated data where in-purview judgments are not unanimous for a question.
 
-    These questions' purview should be rejudged to make them consistent."""),
+    Will interactively query user via the command line to resolve purview judgements for questions that were not unanimous,
+    and when question goes from "out of purview" to "in purview" will also present answer for correctness judgment."""),
                                                                          help="evaluate non-unanimous in-purview judgments")
 
     purview_evaluate_parser.add_argument("collated", type=CollatedFileType(),
                                          help="combined system answers and judgments created by 'analyze collate'")
 
-    purview_evaluate_parser.add_argument("-o", "--output", dest="output", type=CollatedFileType(), default='collate.eval.csv',
+    # purview_evaluate_parser.add_argument("-o", "--output", dest="output", type=CollatedFileType(), default='collate.eval.csv',
+    #                                      help="output file for this command, will also store intermediate results")
+    purview_evaluate_parser.add_argument("-o", "--output", dest="output", default='collate.eval.csv',
                                          help="output file for this command, will also store intermediate results")
     purview_evaluate_parser.set_defaults(func=purview_disagreement_evaluate_handler)
 
@@ -962,23 +965,25 @@ def purview_disagreement_handler(args):
 def purview_disagreement_evaluate_handler(args):
     collated = args.collated
     output_file = args.output
-
-    if output_file is not None:
-        if output_file[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]].equals(collated[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]]):
-            logger.info('Output file is intermediate. Continuing purview assessment.')
-            evaluate_input = output_file
+    collate_file_type = CollatedFileType()
+    output_system_data = collate_file_type(output_file)
+    if output_system_data is not None:
+        if output_system_data[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]].equals(collated[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]]):
+            logger.info('Output file ({0}) is intermediate. Continuing purview assessment.'.format(output_file))
+            evaluate_input = output_system_data
         else:
-            logger.info('Output file is not a match to collated input. Starting purview assessment.')
+            logger.info('Output file ({0}) is not a match to collated input. Starting purview assessment.'.format(output_file))
             evaluate_input = collated
     else:
         print 'else here'
 
-        logger.info('Output file does not currently exist. Starting purview assessment.')
+        logger.info('Output file ({0}) does not currently exist. Starting purview assessment.'.format(output_file))
         evaluate_input = collated
 
-    evaluated = in_purview_disagreement_evaluate(evaluate_input)
+    evaluated = in_purview_disagreement_evaluate(evaluate_input, output_file)
     logger.info("All question purviews are in agreement")
-    to_csv("collate.eval.csv", evaluated, index=False)
+    to_csv(output_file, evaluated, index=False)
+    logger.info("Output written to {0}".format(output_file))
 
 
 def util_command(subparsers):
