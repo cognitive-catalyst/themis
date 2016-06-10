@@ -342,6 +342,8 @@ def voting_router(systems_data, system_names, voting_name):
         #      + ", prec = " + str(precision_t) + ", QA = " + str(qa_t) + ", REV = " + str((1 - qa_t) * precision_t)
         return (1 - qa_t) * precision_t
 
+    pandas.set_option('display.width', 250)
+
     systems_data = drop_missing(systems_data)
     # Calculate the precision and question_attempted for each threshold for every system
     systems = []
@@ -358,24 +360,31 @@ def voting_router(systems_data, system_names, voting_name):
         system_ts.append(ts)
         system_ps.append(precision_values)
         system_qas.append(attempted_values)
+        system['pgc'] = system.apply(lambda x: precision_grounded_confidence(ts,precision_values,attempted_values,x[CONFIDENCE]), axis=1)
+        print system.head(5)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
     # Start the voting results with a copy of one of the systems using only the intersecting questions
     voting = systems[0].loc[questions].copy()
-    voting = voting.drop([ANSWER, CONFIDENCE, CORRECT], axis="columns")
+    voting = voting.drop([ANSWER, CONFIDENCE, "pgc", CORRECT], axis="columns")
     voting[SYSTEM] = voting_name
 
-    #voting["precisionAtPoint"] = voting.apply(lambda x: precision(systems[0],x[CONFIDENCE]), axis=1)
-    #voting["QA_AtPoint"] = voting.apply(lambda x: questions_attempted(systems[0],x[CONFIDENCE]), axis=1)
-    #voting["revised_Conf"] = voting.apply(lambda x: precision_grounded_confidence(system_ts[0],
-    #                                                                              system_ps[0],
-    #                                                                              system_qas[0],
-    #                                                                              x[CONFIDENCE]), axis=1)
-    print voting.head(2)
+    # Find the best precision grounded confidences to find the top system.
+    pgcs = [system[['pgc']].rename(columns={'pgc': system[SYSTEM][0]}) for system in systems]
+    system_pgcs = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True), pgcs)
+    rows = [True for x in range(0,len(voting))]
+    voting.loc[rows, ANSWERING_SYSTEM] = system_pgcs[rows].idxmax(axis=1)
+    voting.loc[rows, 'PrecisionGroundedConf'] = system_pgcs[rows].max(axis=1)
 
+    voting = voting.reset_index()
+    voting[ANSWER] = pandas.merge(systems_data, voting,
+                                  left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
+    voting[CORRECT] = pandas.merge(systems_data, voting,
+                                  left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[CORRECT]
 
-
+    log_correct(voting, voting_name)
+    print voting.head(5)
     return voting
 
 
