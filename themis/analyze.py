@@ -387,10 +387,17 @@ def _create_combined_fallback_system_at_threshold(default_systems_data, secondar
     :return: Fallback results in collated format
     :rtype: pandas.DataFrame
     """
+    percentile = 'Percentile'
+    default_systems_data[percentile] = __standardize_confidence(default_systems_data)
+    secondary_system_data[percentile] = __standardize_confidence(secondary_system_data)
+
     combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
     combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
 
-    return pandas.concat([combined_from_default, combined_from_secondary])
+    combined = pandas.concat([combined_from_default, combined_from_secondary])
+    combined[CONFIDENCE] = combined[percentile]
+    combined.drop([percentile], axis="columns")
+    return combined
 
 
 def fallback_combination(systems_data, default_system, secondary_system):
