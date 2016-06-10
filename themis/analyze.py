@@ -10,6 +10,7 @@ import pandas
 from bs4 import BeautifulSoup
 from nltk import FreqDist, word_tokenize
 
+from metrics import precision
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
                     IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
 
@@ -371,6 +372,86 @@ def oracle_combination(systems_data, system_names, oracle_name):
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
     log_correct(oracle, oracle_name)
     return oracle
+
+
+def _create_combined_fallback_system_at_threshold(default_systems_data, secondary_system_data, threshold):
+    """
+    Combine results from two systems into a single fallback system. The default system will answer the question if
+    the confidence is above the given threshold.
+
+    :param default_systems_data: collated results for the default system (if confidence > t)
+    :type default_systems_data: pandas.DataFrame
+    :param secondary_system_data: collated results for the secondary system (if default_confidence < t)
+    :type default_system: pandas.DataFrame
+    :param threshold: (t) the confidence threshold to determine what system answers the question
+    :type secondary_system: float
+    :return: Fallback results in collated format
+    :rtype: pandas.DataFrame
+    """
+    percentile = 'Percentile'
+    default_systems_data[percentile] = __standardize_confidence(default_systems_data)
+    secondary_system_data[percentile] = __standardize_confidence(secondary_system_data)
+
+    combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
+    combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
+
+    combined = pandas.concat([combined_from_default, combined_from_secondary])
+    combined[CONFIDENCE] = combined[percentile]
+    combined.drop([percentile], axis="columns")
+    return combined
+
+
+def fallback_combination(systems_data, default_system, secondary_system):
+    """
+    Combine results from two systems into a single fallback system. The default system will answer the question if
+    the confidence is above a certain threshold. This method will find the optimal confidence threshold.
+
+    :param systems_data: collated results for the input systems
+    :type systems_data: pandas.DataFrame
+    :param default_system: the name of the default system (if confidence > t)
+    :type default_system: str
+    :param secondary_system: the name of the fallback system (if default_confidence < t)
+    :type secondary_system: str
+    :return: Fallback results in collated format
+    :rtype: pandas.DataFrame
+    """
+    default_system_data = systems_data[systems_data[SYSTEM] == default_system]
+    secondary_system_data = systems_data[systems_data[SYSTEM] == secondary_system]
+
+    intersecting_questions = set(default_system_data[QUESTION]).intersection(set(secondary_system_data[QUESTION]))
+
+    logger.warn("{0} questions in default system".format(len(default_system_data)))
+    logger.warn("{0} questions in secondary system".format(len(secondary_system_data)))
+    logger.warn("{0} questions in overlapping set".format(len(intersecting_questions)))
+
+    default_system_data = default_system_data[default_system_data[QUESTION].isin(intersecting_questions)]
+    secondary_system_data = secondary_system_data[secondary_system_data[QUESTION].isin(intersecting_questions)]
+
+    unique_confidences = default_system_data[CONFIDENCE].unique()
+
+    best_threshold, best_precision = 0, 0
+    for threshold in unique_confidences:
+        combined_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, threshold)
+
+        system_precision = precision(combined_system, 0)
+        if system_precision > best_precision:
+            best_precision = system_precision
+            best_threshold = threshold
+
+    logger.info("Default system accuracy:   {0}%".format(str(precision(default_system_data, 0) * 100)[:4]))
+    logger.info("Secondary system accuracy: {0}%".format(str(precision(secondary_system_data, 0) * 100)[:4]))
+    logger.info("Combined system accuracy:  {0}%".format(str(best_precision * 100)[:4]))
+
+    logger.info("Combined system best threshold: {0}".format(best_threshold))
+
+    best_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, best_threshold)
+    best_system[ANSWERING_SYSTEM] = best_system[SYSTEM]
+    best_system[SYSTEM] = "{0}_FALLBACK_{1}_AT_{2}".format(default_system, secondary_system, str(best_threshold)[:4])
+
+    logger.info("Questions answered by {0}: {1}%".format(default_system, str(100 * float(len(best_system[best_system[ANSWERING_SYSTEM] == default_system])) / len(best_system))[:4]))
+
+    best_system[CONFIDENCE] = __standardize_confidence(best_system)
+    return best_system
 
 
 def filter_judged_answers(systems_data, correct, system_names):
