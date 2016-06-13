@@ -29,3 +29,16 @@ def confidence_thresholds(judgments, add_max):
     if add_max:
         ts = numpy.insert(ts, 0, numpy.Infinity)
     return ts
+
+
+def precision_grounded_confidence(ts, ps, qas, confidence, method='precision_only'):
+    # lookup the associated precision & QA for the confidence using the closest threshold value (in case of mismatches)
+    t_index = (numpy.abs(ts - confidence)).argmin()
+    precision_t = ps[t_index]
+    qa_t = qas[t_index]
+    if method == 'inverse_qa_p_corrected':
+        return (1 - qa_t) * precision_t
+    elif method == 'inverse_qa':
+        return (1 - qa_t)
+    else:
+        return precision_t

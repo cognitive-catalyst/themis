@@ -9,7 +9,7 @@ from nltk import word_tokenize, FreqDist
 
 from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
 
-from themis.metrics import precision, questions_attempted, confidence_thresholds
+from themis.metrics import precision, questions_attempted, confidence_thresholds, precision_grounded_confidence
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -329,22 +329,8 @@ def voting_router(systems_data, system_names, voting_name):
         m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
 
-    def precision_grounded_confidence(ts, ps, qas, confidence, method='precision_only'):
-        # lookup the associated precision & QA for the confidence using the closest threshold value (in case of mismatches)
-        t_index = (np.abs(ts - confidence)).argmin()
-        precision_t = ps[t_index]
-        qa_t = qas[t_index]
-        if method == 'inverse_qa_p_corrected':
-            return (1 - qa_t) * precision_t
-        else:
-            return precision_t
-
-    pandas.set_option('display.width', 250)
-
     systems_data = drop_missing(systems_data)
-
     systems = []
-
     for system_name in system_names:
         system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
         log_correct(system, system_name)
@@ -354,10 +340,8 @@ def voting_router(systems_data, system_names, voting_name):
         ts = confidence_thresholds(system, False)
         ps = [precision(system, t) for t in ts]
         qas = [questions_attempted(system, t) for t in ts]
-
         system['pgc'] = system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
                                                                              method='precision_only'), axis=1)
-        #print system.head(5)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
@@ -379,9 +363,7 @@ def voting_router(systems_data, system_names, voting_name):
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
     voting[CORRECT] = pandas.merge(systems_data, voting,
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[CORRECT]
-
     log_correct(voting, voting_name)
-    #print voting.head(5)
     return voting
 
 
