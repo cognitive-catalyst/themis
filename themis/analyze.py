@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 from nltk import word_tokenize, FreqDist
 
 from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
+from themis.nlc import nlc_train
+from themis.answer import answer_questions
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -406,8 +408,32 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
         logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 # NLC as router function
-def nlc_router(url, username, password, collated, oracle_result, name):
-    pass
+def nlc_router(url, username, password, collated, oracle_result, name = ""):
+    path = "/Home/temp/op" # path to be changed
+
+    kfold_split(collated, path)
+    classifier_list = []
+    for x in range(0,5):
+        classifier_id = nlc_train(url, username, password,"Train" + str(x) + ".csv")
+        classifier_list.append(id) #for future error detection
+        corpus = "Test" + str(x) + ".csv".set_index(3)
+        n = NLC(url, username, password, classifier_id, corpus)
+        out_file = "Out" + str(x) + ".csv"
+        answer_questions(n, "Train" + str(x) + ".csv"[0], out_file, 1)
+
+    #Combine out files togather in the single testing file
+    fout = open("final.csv", "a")
+    # first file:
+    for line in open("out1.csv"):
+        fout.write(line)
+    # rest of files
+    for num in range(1, 5):
+        f = open("Out" + str(num) + ".csv")
+        f.next()  #will skip the header
+        for line in f:
+            fout.write(line)
+        f.close()
+    fout.close()
 
 class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]

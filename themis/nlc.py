@@ -36,7 +36,18 @@ def train_nlc(url, username, password, truth, name):
         logger.info(pretty_print_json(r))
     return r["classifier_id"]
 
-
+#Training for k-fold train file
+def nlc_train(url, username, password, train):
+    logger.info("Train model %s with %d instances" % (len(train)))
+    with tempfile.TemporaryFile() as training_file:
+        train[0] = train[0].str.replace("\n", " ")
+        #train[3] = train[3].str.replace("\n", " ")
+        to_csv(training_file, train[[0, 3]], header=False, index=False)
+        training_file.seek(0)
+        nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
+        r = nlc.create(training_data=training_file)
+        logger.info(pretty_print_json(r))
+    return r["classifier_id"]
 
 class NLC(object):
     """
