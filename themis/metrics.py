@@ -1,4 +1,5 @@
 import numpy
+
 from themis import CONFIDENCE, CORRECT, FREQUENCY, IN_PURVIEW, logger
 
 
