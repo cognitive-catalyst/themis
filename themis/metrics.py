@@ -44,4 +44,4 @@ def precision_grounded_confidence(ts, ps, qas, confidence, method='precision_onl
     elif method == 'precision_only':
         return precision_t
     else:
-        raise ValueError("Invalid confidence standardization method selected.")
+        return precision_t
