@@ -45,3 +45,24 @@ def precision_grounded_confidence(ts, ps, qas, confidence, method='precision_onl
         return precision_t
     else:
         raise ValueError("Invalid method choice for precision_grounded_confidence.")
+
+
+def __standardize_confidence(system, method='rank'):
+    """
+    Takes a dataframe of a SINGLE SYSTEM with associated CONFIDENCE scores and standardizes the confidence
+    values using the percentile in the list as the new confidence.
+
+    :param system: dataframe containing rows of a single system that has a CONFIDENCE column present.
+    :return: a Series containing the standardized confidence.
+    :rtype pandas.Series
+    """
+    if method == 'precision':
+        ts = confidence_thresholds(system, False)
+        ps = [precision(system, t) for t in ts]
+        qas = [questions_attempted(system, t) for t in ts]
+        return system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+                                                                   method='precision_only'), axis=1)
+    elif method == 'rank':
+        return system[CONFIDENCE].rank(pct=True)
+    else:
+        raise ValueError("Invalid method choice for standardize_confidence.")
