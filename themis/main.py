@@ -10,15 +10,16 @@ from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
 
-from themis import (ANSWER, ANSWER_ID, CORRECT, DOCUMENT_ID, FREQUENCY,
-                    IN_PURVIEW, QUESTION, CsvFileType, __version__,
+from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, DOCUMENT_ID,
+                    FREQUENCY, IN_PURVIEW, QUESTION, CsvFileType, __version__,
                     configure_logger, ensure_directory_exists, logger,
                     pretty_print_json, print_csv, to_csv)
 from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             add_judgments_and_frequencies_to_qa_pairs,
                             analyze_answers, compare_systems,
                             corpus_statistics, filter_judged_answers,
-                            in_purview_disagreement, kfold_split,
+                            in_purview_disagreement,
+                            in_purview_disagreement_evaluate, kfold_split,
                             long_tail_fat_head, oracle_combination,
                             system_similarity, truth_coverage,
                             truth_statistics, voting_router)
@@ -780,29 +781,50 @@ def analyze_command(parser, subparsers):
     long_tail_parser.add_argument("collated", nargs="+", type=CollatedFileType(),
                                   help="combined system answers and judgments created by 'analyze collate'")
     long_tail_parser.set_defaults(func=long_tail_handler)
+
     # Find disagreement in purview judgments.
-    purview_disagreement_parser = subparsers.add_parser("purview",
-                                                        formatter_class=Raw,
-                                                        description=textwrap.dedent("""
+    purview_disagreement_parser = subparsers.add_parser("purview")
+    purview_disagreement_subparsers = purview_disagreement_parser.add_subparsers(description="analyze prurview disagreement")
+
+    # Inspect purview disagreement by writing to a file
+    purview_inspect_parser = purview_disagreement_subparsers.add_parser("inspect",
+                                                                        formatter_class=Raw,
+                                                                        description=textwrap.dedent("""
     Return collated data where in-purview judgments are not unanimous for a question.
 
     These questions' purview should be rejudged to make them consistent."""),
-                                                        help="find non-unanimous in-purview judgments")
-    purview_disagreement_parser.add_argument("collated", type=CollatedFileType(),
-                                             help="combined system answers and judgments created by 'analyze collate'")
-    purview_disagreement_parser.set_defaults(func=purview_disagreement_handler)
+                                                                        help="find non-unanimous in-purview judgments")
+
+    purview_inspect_parser.add_argument("collated", type=CollatedFileType(),
+                                        help="combined system answers and judgments created by 'analyze collate'")
+    purview_inspect_parser.set_defaults(func=purview_disagreement_handler)
+
+    purview_evaluate_parser = purview_disagreement_subparsers.add_parser("evaluate",
+                                                                         formatter_class=Raw,
+                                                                         description=textwrap.dedent("""
+    Return collated data where in-purview judgments are not unanimous for a question.
+
+    Will interactively query user via the command line to resolve purview judgements for questions that were not unanimous,
+    and when question goes from "out of purview" to "in purview" will also present answer for correctness judgment."""),
+                                                                         help="evaluate non-unanimous in-purview judgments")
 
     voting_router_parser = subparsers.add_parser("voting-router", formatter_class=Raw,
-                                          description=textwrap.dedent("""
+                                                 description=textwrap.dedent("""
     TODO"""),
-                                          help="answered questions statistics")
+                                                 help="answered questions statistics")
     voting_router_parser.add_argument("collated", type=CollatedFileType(),
-                               help="combined system answers and judgments created by 'analyze collate'")
+                                      help="combined system answers and judgments created by 'analyze collate'")
     voting_router_parser.add_argument("system_names", metavar="system", nargs="+", help="name of systems to combine")
     voting_router_parser.set_defaults(func=voting_router_handler)
 
+    purview_evaluate_parser.add_argument("collated", type=CollatedFileType(),
+                                         help="combined system answers and judgments created by 'analyze collate'")
 
-# noinspection PyTypeChecker
+    purview_evaluate_parser.add_argument("-o", "--output", dest="output", default='collate.eval.csv',
+                                         help="output file for this command, will also store intermediate results")
+    purview_evaluate_parser.set_defaults(func=purview_disagreement_evaluate_handler)
+
+
 def collate_handler(parser, args):
     labeled_qa_pairs = answer_labels(parser, args)
     judgments = pandas.concat(args.judgments)
@@ -934,6 +956,30 @@ def long_tail_handler(args):
 def purview_disagreement_handler(args):
     purview_disagreement = in_purview_disagreement(args.collated)
     print_csv(CollatedFileType.output_format(purview_disagreement))
+
+
+def purview_disagreement_evaluate_handler(args):
+    collated = args.collated
+    output_file = args.output
+    collate_file_type = CollatedFileType()
+    output_system_data = collate_file_type(output_file)
+    if output_system_data is not None:
+        if output_system_data[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]].equals(collated[[QUESTION, SYSTEM, ANSWER, CONFIDENCE, FREQUENCY]]):
+            logger.info('Output file ({0}) is intermediate. Continuing purview assessment.'.format(output_file))
+            evaluate_input = output_system_data
+        else:
+            logger.info('Output file ({0}) is not a match to collated input. Starting purview assessment.'.format(output_file))
+            evaluate_input = collated
+    else:
+        print 'else here'
+
+        logger.info('Output file ({0}) does not currently exist. Starting purview assessment.'.format(output_file))
+        evaluate_input = collated
+
+    evaluated = in_purview_disagreement_evaluate(evaluate_input, output_file)
+    logger.info("All question purviews are in agreement")
+    to_csv(output_file, evaluated, index=False)
+    logger.info("Output written to {0}".format(output_file))
 
 
 def util_command(subparsers):

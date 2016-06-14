@@ -1,13 +1,17 @@
 import functools
 import itertools
-import math, os
+import math
+import os
+import os.path
+import textwrap
 
-import pandas
 import numpy as np
+import pandas
 from bs4 import BeautifulSoup
-from nltk import word_tokenize, FreqDist
+from nltk import FreqDist, word_tokenize
 
-from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
+from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
+                    IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
 
 from themis.metrics import precision, questions_attempted, confidence_thresholds, precision_grounded_confidence
 
@@ -249,6 +253,66 @@ def in_purview_disagreement(systems_data):
     return purview_disagreement
 
 
+def _get_in_purview_judgment(question):
+    judgment = raw_input(textwrap.dedent("""
+    ******** JUDGE THE PURVIEW OF THE FOLLOWING QUESTION ********
+    QUESTION:  {0}
+    (1) IN PURVIEW
+    (2) OUT OF PURVIEW
+
+    YOUR JUDGMENT: """).format(question))
+
+    if judgment == '1':
+        return True
+    elif judgment == '2':
+        return False
+    else:
+        return _get_in_purview_judgment(question)
+
+
+def _judge_answer(row):
+    judgment = raw_input(textwrap.dedent("""
+    ******** JUDGE THE ANSWER TO THE FOLLOWING QUESTION ********
+    QUESTION:  {0}
+    ANSWER:    {1}
+    (1) CORRECT
+    (2) INCORRECT
+
+    YOUR JUDGMENT: """).format(row[1][QUESTION], row[1][ANSWER]))
+
+    if judgment == '1':
+        return True
+    elif judgment == '2':
+        return False
+    else:
+        return _judge_answer(row)
+
+
+def in_purview_disagreement_evaluate(systems_data, output_file):
+    purview_disagreement = in_purview_disagreement(systems_data)
+
+    questions_to_judge = purview_disagreement[QUESTION].unique()
+    for question in questions_to_judge:
+        purview_judgment = _get_in_purview_judgment(question)
+
+        current_question_rows = systems_data[systems_data[QUESTION] == question]
+        for row in current_question_rows.iterrows():
+            index = row[0]
+            original_judgment = row[1]["In Purview"]
+
+            if purview_judgment != original_judgment:
+                if purview_judgment:
+                    systems_data.ix[index, IN_PURVIEW] = True
+                    systems_data.ix[index, CORRECT] = _judge_answer(row)
+                else:
+                    systems_data.ix[index, IN_PURVIEW] = False
+                    systems_data.ix[index, CORRECT] = False
+            to_csv(output_file, systems_data, index=False)
+        # break
+    # print systems_data[systems_data[QUESTION] == question
+    return systems_data
+
+
 def oracle_combination(systems_data, system_names, oracle_name):
     """
     Combine results from multiple systems into a single oracle system. The oracle system gets a question correct if any
@@ -438,7 +502,7 @@ def drop_missing(systems_data):
     return systems_data
 
 
-def kfold_split(df, outdir, _folds = 5, _training_header = False):
+def kfold_split(df, outdir, _folds=5, _training_header=False):
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
@@ -448,20 +512,20 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
     logger.info("Results written to output folder " + outdir)
 
     for x in range(0, _folds):
-        fold_low = x*foldSize
-        fold_high = (x+1)*foldSize
+        fold_low = x * foldSize
+        fold_high = (x + 1) * foldSize
 
-        if fold_high >= len(df):
-            fold_high = len(df)
+    if fold_high >= len(df):
+        fold_high = len(df)
 
-        test_df = df.iloc[fold_low:fold_high]
-        train_df = df.drop(df.index[fold_low:fold_high])
+    test_df = df.iloc[fold_low:fold_high]
+    train_df = df.drop(df.index[fold_low:fold_high])
 
-        test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
-        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
+    test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
+    train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
 
-        logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
-        logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
+    logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
+    logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 
 class CollatedFileType(CsvFileType):
@@ -471,14 +535,18 @@ class CollatedFileType(CsvFileType):
         super(self.__class__, self).__init__(self.__class__.columns)
 
     def __call__(self, filename):
-        collated = super(self.__class__, self).__call__(filename)
-        m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
-        if m:
-            n = len(collated)
-            logger.warning(
-                "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
-                % (m, n, filename, 100.0 * m / n))
-        return collated
+        if os.path.isfile(filename):
+            collated = super(self.__class__, self).__call__(filename)
+            m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
+            if m:
+                n = len(collated)
+                logger.warning(
+                    "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
+                    % (m, n, filename, 100.0 * m / n))
+            return collated
+        else:
+            logger.info("{0} does not exist".format(filename))
+            return None
 
     @classmethod
     def output_format(cls, collated):
