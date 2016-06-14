@@ -20,7 +20,7 @@ SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
 
-def __standardize_confidence(system):
+def __standardize_confidence(system, method='precision'):
     """
     Takes a dataframe of a SINGLE SYSTEM with associated CONFIDENCE scores and standardizes the confidence
     values using the percentile in the list as the new confidence.
@@ -29,7 +29,16 @@ def __standardize_confidence(system):
     :return: a Series containing the standardized confidence.
     :rtype pandas.Series
     """
-    return system[CONFIDENCE].rank(pct=True)
+    if method == 'precision':
+        ts = confidence_thresholds(system, False)
+        ps = [precision(system, t) for t in ts]
+        qas = [questions_attempted(system, t) for t in ts]
+        return system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+                                                                   method='precision_only'), axis=1)
+    elif method == 'rank':
+        return system[CONFIDENCE].rank(pct=True)
+    else:
+        raise ValueError("Invalid method choice for standardize_confidence.")
 
 
 def corpus_statistics(corpus):
@@ -485,8 +494,9 @@ def voting_router(systems_data, system_names, voting_name):
         ts = confidence_thresholds(system, False)
         ps = [precision(system, t) for t in ts]
         qas = [questions_attempted(system, t) for t in ts]
-        system['pgc'] = system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
-                                                                             method='precision_only'), axis=1)
+        system['pgc'] = __standardize_confidence(system)
+            #system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+            #                                                                 method='precision_only'), axis=1)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
@@ -501,7 +511,7 @@ def voting_router(systems_data, system_names, voting_name):
     rows = [True for x in range(0, len(voting))]
     voting.loc[rows, ANSWERING_SYSTEM] = system_pgcs[rows].idxmax(axis=1)
     voting.loc[rows, CONFIDENCE] = system_pgcs[rows].max(axis=1)
-    voting.loc[rows, 'PGC'] = system_pgcs[rows].max(axis=1)
+    #voting.loc[rows, 'PGC'] = system_pgcs[rows].max(axis=1)
 
     voting = voting.reset_index()
     voting[ANSWER] = pandas.merge(systems_data, voting,
