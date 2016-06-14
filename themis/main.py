@@ -17,8 +17,8 @@ from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, DOCUMENT_ID,
 from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             add_judgments_and_frequencies_to_qa_pairs,
                             analyze_answers, compare_systems,
-                            corpus_statistics, filter_judged_answers,
-                            in_purview_disagreement,
+                            corpus_statistics, fallback_combination,
+                            filter_judged_answers, in_purview_disagreement,
                             in_purview_disagreement_evaluate, kfold_split,
                             long_tail_fat_head, oracle_combination,
                             system_similarity, truth_coverage,
@@ -709,6 +709,16 @@ def analyze_command(parser, subparsers):
                                help="combined system answers and judgments created by 'analyze collate'")
     oracle_parser.add_argument("system_names", metavar="system", nargs="+", help="name of systems to combine")
     oracle_parser.set_defaults(func=oracle_handler)
+
+    # Create combined fallback system
+    fallback_parser = subparsers.add_parser("fallback",
+                                            formatter_class=Raw,
+                                            help="Combine results from two systems into a single fallback system.")
+    fallback_parser.add_argument("collated", type=CollatedFileType(),
+                                 help="combined system answers and judgments created by 'analyze collate'")
+    fallback_parser.add_argument("default_system", help="the default system to query")
+    fallback_parser.add_argument("secondary_system", help="the system to query if the default system confidence falls below the threshold")
+    fallback_parser.set_defaults(func=fallback_handler)
     # Corpus statistics.
     corpus_parser = subparsers.add_parser("corpus",
                                           formatter_class=Raw,
@@ -783,7 +793,7 @@ def analyze_command(parser, subparsers):
     long_tail_parser.set_defaults(func=long_tail_handler)
 
     # Find disagreement in purview judgments.
-    purview_disagreement_parser = subparsers.add_parser("purview")
+    purview_disagreement_parser = subparsers.add_parser("purview", help="analyze purview disagreement between annotators")
     purview_disagreement_subparsers = purview_disagreement_parser.add_subparsers(description="analyze prurview disagreement")
 
     # Inspect purview disagreement by writing to a file
@@ -811,10 +821,6 @@ def analyze_command(parser, subparsers):
     purview_evaluate_parser.add_argument("collated", type=CollatedFileType(),
                                          help="combined system answers and judgments created by 'analyze collate'")
 
-    # purview_evaluate_parser.add_argument("-o", "--output", dest="output", type=CollatedFileType(), default='collate.eval.csv',
-    #                                      help="output file for this command, will also store intermediate results")
-    purview_evaluate_parser.add_argument("-o", "--output", dest="output", default='collate.eval.csv',
-                                         help="output file for this command, will also store intermediate results")
     purview_evaluate_parser.set_defaults(func=purview_disagreement_evaluate_handler)
     voting_router_parser = subparsers.add_parser("voting-router", formatter_class=Raw,
                                                  description=textwrap.dedent("""
@@ -900,6 +906,11 @@ def oracle_handler(args):
     oracle_name = "%s Oracle" % "+".join(args.system_names)
     oracle = oracle_combination(args.collated, args.system_names, oracle_name)
     print_csv(OracleFileType.output_format(oracle))
+
+
+def fallback_handler(args):
+    fallback = fallback_combination(args.collated, args.default_system, args.secondary_system)
+    print_csv(OracleFileType.output_format(fallback))
 
 
 def voting_router_handler(args):
