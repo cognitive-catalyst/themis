@@ -40,5 +40,7 @@ def precision_grounded_confidence(ts, ps, qas, confidence, method='precision_onl
         return (1 - qa_t) * precision_t
     elif method == 'inverse_qa':
         return (1 - qa_t)
-    else:
+    elif method == 'precision_only':
         return precision_t
+    else:
+        raise ValueError("Invalid confidence standardization method selected.")
