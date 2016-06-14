@@ -13,6 +13,8 @@ from nltk import FreqDist, word_tokenize
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
                     IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
 
+from themis.metrics import precision, questions_attempted, confidence_thresholds, precision_grounded_confidence
+
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
@@ -371,6 +373,62 @@ def oracle_combination(systems_data, system_names, oracle_name):
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
     log_correct(oracle, oracle_name)
     return oracle
+
+
+def voting_router(systems_data, system_names, voting_name):
+    """
+    Combine results from multiple systems into a single that uses voting to decide which system should answer.
+
+    :param systems_data: collated results for all systems.
+    :type systems_data: pandas.DataFrame
+    :param system_names: names of systems to combine
+    :type system_names: list of str
+    :param voting_name: the name of the combined system
+    :type voting_name: str
+    :return: voting system results in collated format
+    :rtype: pandas.DataFrame
+    """
+    def log_correct(system_data, name):
+        n = len(system_data)
+        m = sum(system_data[CORRECT])
+        logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
+
+    systems_data = drop_missing(systems_data)
+    systems = []
+    for system_name in system_names:
+        system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
+        log_correct(system, system_name)
+        systems.append(system)
+
+        # Calculate the precision and question_attempted for each threshold, use it for standardized confidences
+        ts = confidence_thresholds(system, False)
+        ps = [precision(system, t) for t in ts]
+        qas = [questions_attempted(system, t) for t in ts]
+        system['pgc'] = system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+                                                                             method='precision_only'), axis=1)
+
+    # Get the questions asked to all the systems.
+    questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
+    # Start the voting results with a copy of one of the systems using only the intersecting questions
+    voting = systems[0].loc[questions].copy()
+    voting = voting.drop([ANSWER, CONFIDENCE, "pgc", CORRECT], axis="columns")
+    voting[SYSTEM] = voting_name
+
+    # Find the best precision grounded confidences to find the top system.
+    pgcs = [system[['pgc']].rename(columns={'pgc': system[SYSTEM][0]}) for system in systems]
+    system_pgcs = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True), pgcs)
+    rows = [True for x in range(0,len(voting))]
+    voting.loc[rows, ANSWERING_SYSTEM] = system_pgcs[rows].idxmax(axis=1)
+    voting.loc[rows, CONFIDENCE] = system_pgcs[rows].max(axis=1)
+    voting.loc[rows, 'PGC'] = system_pgcs[rows].max(axis=1)
+
+    voting = voting.reset_index()
+    voting[ANSWER] = pandas.merge(systems_data, voting,
+                                  left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
+    voting[CORRECT] = pandas.merge(systems_data, voting,
+                                  left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[CORRECT]
+    log_correct(voting, voting_name)
+    return voting
 
 
 def filter_judged_answers(systems_data, correct, system_names):
