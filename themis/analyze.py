@@ -20,7 +20,7 @@ SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
 
-def __standardize_confidence(system, method='precision'):
+def __standardize_confidence(system, method='rank'):
     """
     Takes a dataframe of a SINGLE SYSTEM with associated CONFIDENCE scores and standardizes the confidence
     values using the percentile in the list as the new confidence.
@@ -494,7 +494,7 @@ def voting_router(systems_data, system_names, voting_name):
         ts = confidence_thresholds(system, False)
         ps = [precision(system, t) for t in ts]
         qas = [questions_attempted(system, t) for t in ts]
-        system['pgc'] = __standardize_confidence(system)
+        system['pgc'] = __standardize_confidence(system, method='precision')
             #system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
             #                                                                 method='precision_only'), axis=1)
 
