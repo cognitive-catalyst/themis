@@ -8,7 +8,8 @@ import os
 
 from bs4 import BeautifulSoup
 
-from themis import logger, from_csv, ANSWER_ID, ANSWER, TITLE, FILENAME, DOCUMENT_ID
+from themis import (ANSWER, ANSWER_ID, DOCUMENT_ID, FILENAME, TITLE, from_csv,
+                    logger)
 from themis.checkpoint import DataFrameCheckpoint, get_items
 from themis.xmgr import CorpusFileType
 
@@ -46,7 +47,7 @@ def parse_trec_file(trec_filename):
         try:
             return {
                 ANSWER_ID: parse.find("meta:key:pautid").text,
-                ANSWER: parse.find("text").text,
+                ANSWER: parse.find("meta:key:pauresponsemarkup").text,
                 TITLE: parse.find("title").text,
                 FILENAME: parse.find("meta:key:originalfile").text,
                 DOCUMENT_ID: parse.find("meta:documentid").text
