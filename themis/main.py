@@ -811,10 +811,6 @@ def analyze_command(parser, subparsers):
     purview_evaluate_parser.add_argument("collated", type=CollatedFileType(),
                                          help="combined system answers and judgments created by 'analyze collate'")
 
-    # purview_evaluate_parser.add_argument("-o", "--output", dest="output", type=CollatedFileType(), default='collate.eval.csv',
-    #                                      help="output file for this command, will also store intermediate results")
-    purview_evaluate_parser.add_argument("-o", "--output", dest="output", default='collate.eval.csv',
-                                         help="output file for this command, will also store intermediate results")
     purview_evaluate_parser.set_defaults(func=purview_disagreement_evaluate_handler)
     voting_router_parser = subparsers.add_parser("voting-router", formatter_class=Raw,
                                                  description=textwrap.dedent("""
