@@ -7,9 +7,12 @@ import numpy as np
 from bs4 import BeautifulSoup
 from nltk import word_tokenize, FreqDist
 
-from themis import CsvFileType, QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID
-from themis.nlc import nlc_train
+from themis import  QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID,to_csv,CsvFileType,\
+    pretty_print_json
+#from themis.nlc import nlc_router_train
 from themis.answer import answer_questions
+import tempfile
+from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -408,18 +411,31 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
         logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 # NLC as router function
-def nlc_router(url, username, password, collated, oracle_result, name = ""):
-    path = "/Home/temp/op" # path to be changed
-
-    kfold_split(collated, path)
+def nlc_router(url, username, password, collated, oracle_result, name = None):
+    path = "/Users/dharmendrasinhvaghela/temp/" # path to be changed
+    kfold_split(collated, path,5,True)
     classifier_list = []
     for x in range(0,5):
-        classifier_id = nlc_train(url, username, password,"Train" + str(x) + ".csv")
-        classifier_list.append(id) #for future error detection
+        #
+        train = "Train" + str(x) + ".csv"
+        with tempfile.TemporaryFile() as training_file:
+            train[QUESTION] = train[QUESTION].str.replace("\n", " ")
+            to_csv(training_file, collated[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
+            training_file.seek(0)
+            nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
+            classifier_id = nlc.create(training_data=training_file)
+            classifier_list.append(classifier_id)  # for future error detection
+            logger.info(pretty_print_json(classifier_id))
+
+        #Testing
         corpus = "Test" + str(x) + ".csv".set_index(3)
         n = NLC(url, username, password, classifier_id, corpus)
         out_file = "Out" + str(x) + ".csv"
-        answer_questions(n, "Train" + str(x) + ".csv"[0], out_file, 1)
+        answer_questions(n, train[0], out_file, 1)
+        #
+
+
+
 
     #Combine out files togather in the single testing file
     fout = open("final.csv", "a")

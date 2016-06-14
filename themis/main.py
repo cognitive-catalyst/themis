@@ -810,7 +810,7 @@ def analyze_command(parser, subparsers):
     nlc_router.add_argument("url", help = "NLC url")
     nlc_router.add_argument("username", help="NLC username")
     nlc_router.add_argument("password", help="NLC password")
-    nlc_router.add_argument("collated", type=CollatedFileType(), help="collated file created for oracle")
+    nlc_router.add_argument("collated", type=CsvFileType(), help="collated file created for oracle")
     nlc_router.add_argument("oracle_result", type=CollatedFileType(), help="output file created by oracle")
     nlc_router.add_argument("name", help="classifier name")
     nlc_router.set_defaults(func=nlc_router_handler)
