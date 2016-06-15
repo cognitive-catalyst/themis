@@ -451,6 +451,17 @@ def nlc_router(url, username, password, collated, oracle_result, name = None):
         f.close()
     fout.close()
 
+    #Merge two files for relevent fields
+
+    df1 = pandas.read_csv("final.csv", index_col=(0, 3),
+                     header=None)
+
+
+    df2 = pandas.read_csv("oracle_result.csv", index_col=(0, 1), usecols=(2,3,4,5,6),
+                  header=None)
+    result = df1.join(df2, how='inner')
+    result.to_csv("output.csv", header=None) 
+
 class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]
 
