@@ -232,9 +232,11 @@ def in_purview_disagreement(systems_data):
     :rtype: pandas.DataFrame
     """
     question_groups = systems_data[[QUESTION, IN_PURVIEW]].groupby(QUESTION)
-    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) == 2).index
+    print "question_groups" , len(question_groups)
+    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) > 1 ).index
     purview_disagreement = systems_data.loc[index]
     m = len(purview_disagreement[QUESTION].drop_duplicates())
+    print "mm ", m
     if m:
         n = len(systems_data[QUESTION].drop_duplicates())
         logger.warning("%d out of %d questions have non-unanimous in-purview judgments (%0.3f%%)"
@@ -278,10 +280,15 @@ def _judge_answer(row):
 
 
 def in_purview_disagreement_evaluate(systems_data, output_file):
-    purview_disagreement = in_purview_disagreement(systems_data)
 
+    systems_data = systems_data[:-3]
+    print "systems_data : ", len(systems_data)
+    purview_disagreement = in_purview_disagreement(systems_data)
+    print len(purview_disagreement)
     questions_to_judge = purview_disagreement[QUESTION].unique()
+    print len(questions_to_judge)
     for question in questions_to_judge:
+
         purview_judgment = _get_in_purview_judgment(question)
 
         current_question_rows = systems_data[systems_data[QUESTION] == question]
