@@ -13,7 +13,7 @@ from themis import  QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY
 from themis.answer import answer_questions
 import tempfile
 from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
-
+from themis.nlc import (NLC)
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
@@ -411,56 +411,50 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
         logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 # NLC as router function
-def nlc_router(url, username, password, collated, oracle_result, name = None):
-    path = "/Users/dharmendrasinhvaghela/temp/" # path to be changed
-    kfold_split(collated, path,5,True)
+def nlc_router_train(url, username, password, oracle_out):
+    path = "/Users/dharmendrasinhvaghela/temp/"  # path to be changed
+    kfold_split(oracle_out, path, 5, True)
     classifier_list = []
-    for x in range(0,5):
-        #
-        train = "Train" + str(x) + ".csv"
+
+    for x in range(0, 1): #changes after testing
+        train = pandas.read_csv("Train" + str(x) + ".csv")
         with tempfile.TemporaryFile() as training_file:
             train[QUESTION] = train[QUESTION].str.replace("\n", " ")
-            to_csv(training_file, collated[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
+            to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
             nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
             classifier_id = nlc.create(training_data=training_file)
             classifier_list.append(classifier_id)  # for future error detection
             logger.info(pretty_print_json(classifier_id))
 
-        #Testing
-        corpus = "Test" + str(x) + ".csv".set_index(3)
-        n = NLC(url, username, password, classifier_id, corpus)
+
+def nlc_router_test(url, username, password, oracle_in):
+    for x in range(0, 1): #changes after testing
+        test = pandas.read_csv("Test" + str(x) + ".csv").set_index(ANSWERING_SYSTEM)
+        test[QUESTION] = test[QUESTION].str.replace("\n", " ")
+        classifier_id = "2373f5x67-nlc-3972"
+        n = NLC(url, username, password,  classifier_id, test)
         out_file = "Out" + str(x) + ".csv"
-        answer_questions(n, train[0], out_file, 1)
-        #
+        answer_questions(n, test[QUESTION], out_file, 1)
 
+    #Concatenate multiple trained output into single csv file
+    dfList = []
+    columns = []  #list of columns names
+    for x in range(0,1): #changes after testing
+        df = pandas.read_csv("Out" + str(x) + ".csv",header = False)
+        dfList.append(df)
 
+    concateDf = pandas.concat(dfList,axis = 0)
+    concateDf.columns = columns
+    concateDf.to_csv("Output.csv", index = None)
 
-
-    #Combine out files togather in the single testing file
-    fout = open("final.csv", "a")
-    # first file:
-    for line in open("out1.csv"):
-        fout.write(line)
-    # rest of files
-    for num in range(1, 5):
-        f = open("Out" + str(num) + ".csv")
-        f.next()  #will skip the header
-        for line in f:
-            fout.write(line)
-        f.close()
-    fout.close()
-
-    #Merge two files for relevent fields
-
-    df1 = pandas.read_csv("final.csv", index_col=(0, 3),
-                     header=None)
-
-
-    df2 = pandas.read_csv("oracle_result.csv", index_col=(0, 1), usecols=(2,3,4,5,6),
-                  header=None)
+    # Join for getting fields from oracle collated file
+    df1 = pandas.read_csv("Output.csv", index_col=(0, 3),
+                          header=None)
+    df2 = pandas.read_csv(oracle_in, index_col=(0, 1), usecols=(2, 3, 4, 5, 6),
+                          header=None)
     result = df1.join(df2, how='inner')
-    result.to_csv("output.csv", header=None) 
+    result.to_csv("Final.csv", header=None)
 
 class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]
