@@ -414,8 +414,6 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
 # NLC as router functions
 
 
-
-
 # k-folding and training
 def nlc_router_train(url, username, password, oracle_out, path):
     oracle_out = oracle_out[[QUESTION, ANSWERING_SYSTEM]]
@@ -429,7 +427,7 @@ def nlc_router_train(url, username, password, oracle_out, path):
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
             nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
-            classifier_id = nlc.create(training_data=training_file)
+            classifier_id = nlc.create(training_data=training_file, name='fold_' + str(x))
             classifier_list.append(classifier_id["classifier_id"].encode("utf-8"))
             logger.info(pretty_print_json(classifier_id))
             pretty_print_json(classifier_id)
@@ -445,7 +443,7 @@ def nlc_router_test(url, username, password, collate_file,path,classifier_list):
         classifier_id = classifier_list[x]
         n = NLC(url, username, password,  classifier_id, test)
         out_file = os.path.join(path,"Out" + str(x) + ".csv")
-        logger.info("Testing on fold " + str(x) + ":")
+        logger.info("Testing on fold " + str(x) + " using NLC classifier " + str(classifier_list[x]))
         answer_router_questions(n, set(test[QUESTION]), out_file)
 
     # Concatenate multiple trained output into single csv file
@@ -460,7 +458,9 @@ def nlc_router_test(url, username, password, collate_file,path,classifier_list):
     concateDf.to_csv(os.path.join(path,"Interim-Result.csv"), encoding='utf-8', index = None)
 
     # Join operation to get fields from oracle collated file
-    result = pandas.merge(concateDf,collate_file, on=[QUESTION])
+    result = pandas.merge(concateDf,collate_file, on=[QUESTION, SYSTEM])
+    result = result.rename(columns = {SYSTEM: ANSWERING_SYSTEM})
+    result[SYSTEM] = 'NLC-as-router'
     return result
 
 

@@ -476,7 +476,8 @@ def nlc_router_train_handler(args):
     print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path))
 
 def nlc_router_test_handler(args):
-   print(nlc_router_test(args.url, args.username, args.password, args.collate_file, args.path, args.ids))
+   res = nlc_router_test(args.url, args.username, args.password, args.collate_file, args.path, args.ids)
+   print_csv(OracleFileType.output_format(res))
 
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
