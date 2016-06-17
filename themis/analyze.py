@@ -437,6 +437,11 @@ def nlc_router_train(url, username, password, oracle_out, path):
 
 # testing and merging
 def nlc_router_test(url, username, password, collate_file,path,classifier_list):
+    def log_correct(system_data, name):
+        n = len(system_data)
+        m = sum(system_data[CORRECT])
+        logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
+
     for x in range(0, 5):
         test = pandas.read_csv(os.path.join(path, "Test" + str(x) + ".csv"))
         test = test[[QUESTION]]
@@ -462,6 +467,7 @@ def nlc_router_test(url, username, password, collate_file,path,classifier_list):
     result = pandas.merge(concateDf,collate_file, on=[QUESTION, SYSTEM])
     result = result.rename(columns = {SYSTEM: ANSWERING_SYSTEM})
     result[SYSTEM] = 'NLC-as-router'
+    log_correct(result, 'NLC-as-router')
     return result
 
 
