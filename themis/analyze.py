@@ -8,12 +8,13 @@ from bs4 import BeautifulSoup
 from nltk import word_tokenize, FreqDist
 
 from themis import  QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID,to_csv,CsvFileType,\
-    pretty_print_json
+    pretty_print_json, percent_complete_message
 #from themis.nlc import nlc_router_train
 from themis.answer import answer_questions
 import tempfile
 from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 from themis.nlc import (NLC)
+from themis.checkpoint import DataFrameCheckpoint
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
 
@@ -410,51 +411,73 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
         logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
         logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
-# NLC as router function
-def nlc_router_train(url, username, password, oracle_out):
-    path = "/Users/dharmendrasinhvaghela/temp/"  # path to be changed
+# NLC as router functions
+
+
+
+
+# k-folding and training
+def nlc_router_train(url, username, password, oracle_out, path):
+    oracle_out = oracle_out[[QUESTION, ANSWERING_SYSTEM]]
+    oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
     kfold_split(oracle_out, path, 5, True)
     classifier_list = []
 
-    for x in range(0, 1): #changes after testing
+    for x in range(0, 5):
         train = pandas.read_csv("Train" + str(x) + ".csv")
         with tempfile.TemporaryFile() as training_file:
-            train[QUESTION] = train[QUESTION].str.replace("\n", " ")
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
             nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
             classifier_id = nlc.create(training_data=training_file)
-            classifier_list.append(classifier_id)  # for future error detection
+            classifier_list.append(classifier_id)
             logger.info(pretty_print_json(classifier_id))
+    return classifier_list
 
-
-def nlc_router_test(url, username, password, oracle_in):
-    for x in range(0, 1): #changes after testing
-        test = pandas.read_csv("Test" + str(x) + ".csv").set_index(ANSWERING_SYSTEM)
+# testing and merging
+def nlc_router_test(url, username, password, oracle_in, oracle_out, outdir):
+    classifier_list = nlc_router_train(url, username, password, oracle_out, outdir)
+    for x in range(0, 5):
+        test = pandas.read_csv("Test" + str(x) + ".csv")
+        test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
-        classifier_id = "2373f5x67-nlc-3972"
+        classifier_id = classifier_list[x]
         n = NLC(url, username, password,  classifier_id, test)
         out_file = "Out" + str(x) + ".csv"
-        answer_questions(n, test[QUESTION], out_file, 1)
+        answer_router_questions(n, set(test[QUESTION]), out_file)
 
-    #Concatenate multiple trained output into single csv file
+    # Concatenate multiple trained output into single csv file
     dfList = []
-    columns = []  #list of columns names
-    for x in range(0,1): #changes after testing
-        df = pandas.read_csv("Out" + str(x) + ".csv",header = False)
+    columns = [QUESTION,SYSTEM]
+    for x in range(0, 5):
+        df = pandas.read_csv("Out" + str(x) + ".csv", header = 0)
         dfList.append(df)
 
-    concateDf = pandas.concat(dfList,axis = 0)
+    concateDf = pandas.concat(dfList, axis = 0)
     concateDf.columns = columns
-    concateDf.to_csv("Output.csv", index = None)
+    concateDf.to_csv("Interim-Result.csv", index = None)
 
-    # Join for getting fields from oracle collated file
-    df1 = pandas.read_csv("Output.csv", index_col=(0, 3),
-                          header=None)
-    df2 = pandas.read_csv(oracle_in, index_col=(0, 1), usecols=(2, 3, 4, 5, 6),
-                          header=None)
-    result = df1.join(df2, how='inner')
-    result.to_csv("Final.csv", header=None)
+    # Join operation to get fields from oracle collated file
+    result = pandas.merge(concateDf,oracle_in)
+    result.to_csv("Final-Result.csv", index=False)
+
+
+def answer_router_questions(system,questions,output):
+    logger.info("Get answers to %d questions from %s" % (len(questions), system))
+    answers = DataFrameCheckpoint(output, [QUESTION, ANSWERING_SYSTEM])
+    try:
+        if answers.recovered:
+            logger.info("Recovered %d answers from %s" % (len(answers.recovered), output))
+        questions = sorted(questions - answers.recovered)
+        n = len(answers.recovered) + len(questions)
+        for i, question in enumerate(questions, len(answers.recovered) + 1):
+            if i is 1 or i == n:
+                logger.info(percent_complete_message("Question", i, n))
+            answer = system.query(question.replace("\n", " "))
+            logger.debug("%s\t%s" % (question, answer))
+            answers.write(question, answer)
+    finally:
+        answers.close()
 
 class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]

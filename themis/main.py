@@ -473,10 +473,10 @@ def nlc_train_handler(args):
     print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
 
 def nlc_router_train_handler(args):
-    print(nlc_router_train(args.url, args.username, args.password, args.oracle_out))
+    print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path))
 
 def nlc_router_test_handler(args):
-    print(nlc_router_test(args.url, args.username, args.password, args.oracle_in))
+    nlc_router_test(args.url, args.username, args.password, args.oracle_in, args.oracle_out, args.outdir)
 
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
@@ -824,12 +824,15 @@ def analyze_command(parser, subparsers):
 
     nlc_router_train = nlc_router_subparsers.add_parser("train", parents=[nlc_common_arguments], help="train NLC model")
     nlc_router_train.add_argument("oracle_out", type=CsvFileType(), help="file created by oracle experiment")
+    nlc_router_train.add_argument("path", help="directory path to save intermediate results")
     nlc_router_train.set_defaults(func=nlc_router_train_handler)
 
    #test
 
     nlc_router_test = nlc_router_subparsers.add_parser("test", parents=[nlc_common_arguments], help="test NLC model")
     nlc_router_test.add_argument("oracle_in", type=CsvFileType(), help="collated file created for oracle input")
+    nlc_router_test.add_argument("oracle_out", type=CsvFileType(), help="collated file created by oracle experiment")
+    nlc_router_test.add_argument("outdir",  help="directory path to save intermediate results")
     nlc_router.set_defaults(func=nlc_router_test_handler)
 
 

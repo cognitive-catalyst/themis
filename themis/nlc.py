@@ -55,3 +55,10 @@ class NLC(object):
         class_name = classification["classes"][0]["class_name"]
         confidence = classification["classes"][0]["confidence"]
         return self.corpus.loc[class_name][ANSWER], confidence
+
+    def query(self, question):
+        classification = self.nlc.classify(self.classifier_id, question)
+        class_name = classification["classes"][1]["class_name"]
+        #confidence = classification["classes"][1]["confidence"]
+        return class_name#, confidence
+
