@@ -13,8 +13,9 @@ from nltk import FreqDist, word_tokenize
 from metrics import precision
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
                     IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
-from themis.metrics import (confidence_thresholds, precision,
-                            precision_grounded_confidence, questions_attempted, __standardize_confidence)
+from themis.metrics import (__standardize_confidence, confidence_thresholds,
+                            precision, precision_grounded_confidence,
+                            questions_attempted)
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -475,8 +476,8 @@ def voting_router(systems_data, system_names, voting_name):
         ps = [precision(system, t) for t in ts]
         qas = [questions_attempted(system, t) for t in ts]
         system['pgc'] = __standardize_confidence(system, method='precision')
-            #system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
-            #                                                                 method='precision_only'), axis=1)
+        # system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+        #                                                                 method='precision_only'), axis=1)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
@@ -555,7 +556,11 @@ def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_freq
     if remove_newlines:
         qa_pairs["Temp"] = qa_pairs[ANSWER].str.replace("\n", "")
         qa_pairs = qa_pairs.rename(columns={"Temp": ANSWER, ANSWER: "Temp"})
+
+        judgments[ANSWER] = judgments[ANSWER].str.replace("\n", "")
     qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER), how="left")
+    qa_pairs = qa_pairs.drop_duplicates([QUESTION, ANSWER])
+
     if remove_newlines:
         del qa_pairs[ANSWER]
         qa_pairs = qa_pairs.rename(columns={"Temp": ANSWER})
