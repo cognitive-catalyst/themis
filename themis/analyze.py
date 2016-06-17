@@ -436,9 +436,9 @@ def nlc_router_train(url, username, password, oracle_out, path):
     return classifier_list
 
 # testing and merging
-def nlc_router_test(url, username, password, collate_file,classifier_list):
+def nlc_router_test(url, username, password, collate_file,path,classifier_list):
     for x in range(0, 5):
-        test = pandas.read_csv(os.path.join("Test" + str(x) + ".csv"))
+        test = pandas.read_csv(os.path.join(path,"Test" + str(x) + ".csv"))
         test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
         classifier_id = classifier_list[x]
@@ -450,16 +450,16 @@ def nlc_router_test(url, username, password, collate_file,classifier_list):
     dfList = []
     columns = [QUESTION,SYSTEM]
     for x in range(0, 5):
-        df = pandas.read_csv(os.path.join("Out" + str(x) + ".csv", header = 0))
+        df = pandas.read_csv(os.path.join(path,"Out" + str(x) + ".csv", header = 0))
         dfList.append(df)
 
     concateDf = pandas.concat(dfList, axis = 0)
     concateDf.columns = columns
-    concateDf.to_csv(os.path.join("Interim-Result.csv", index = None))
+    concateDf.to_csv(os.path.join(path,"Interim-Result.csv", index = None))
 
     # Join operation to get fields from oracle collated file
     result = pandas.merge(concateDf,collate_file)
-    result.to_csv(os.path.join("Final-Result.csv", index=False))
+    return result
 
 
 def answer_router_questions(system,questions,output):
