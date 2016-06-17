@@ -1,11 +1,14 @@
 import functools
 import itertools
-import math, os
+import math
+import os
+import os.path
+import textwrap
 
-import pandas
 import numpy as np
+import pandas
 from bs4 import BeautifulSoup
-from nltk import word_tokenize, FreqDist
+from nltk import FreqDist, word_tokenize
 
 from themis import  QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID,to_csv,CsvFileType,\
     pretty_print_json, percent_complete_message
@@ -15,20 +18,11 @@ import tempfile
 from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 from themis.nlc import (NLC)
 from themis.checkpoint import DataFrameCheckpoint
+from themis.metrics import (confidence_thresholds, precision,
+                            precision_grounded_confidence, questions_attempted, __standardize_confidence)
+
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
-
-
-def __standardize_confidence(system):
-    """
-    Takes a dataframe of a SINGLE SYSTEM with associated CONFIDENCE scores and standardizes the confidence
-    values using the percentile in the list as the new confidence.
-
-    :param system: dataframe containing rows of a single system that has a CONFIDENCE column present.
-    :return: a Series containing the standardized confidence.
-    :rtype pandas.Series
-    """
-    return system[CONFIDENCE].rank(pct=True)
 
 
 def corpus_statistics(corpus):
@@ -243,7 +237,7 @@ def in_purview_disagreement(systems_data):
     :rtype: pandas.DataFrame
     """
     question_groups = systems_data[[QUESTION, IN_PURVIEW]].groupby(QUESTION)
-    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) == 2).index
+    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) > 1 ).index
     purview_disagreement = systems_data.loc[index]
     m = len(purview_disagreement[QUESTION].drop_duplicates())
     if m:
@@ -251,6 +245,67 @@ def in_purview_disagreement(systems_data):
         logger.warning("%d out of %d questions have non-unanimous in-purview judgments (%0.3f%%)"
                        % (m, n, 100.0 * m / n))
     return purview_disagreement
+
+
+def _get_in_purview_judgment(question):
+    judgment = raw_input(textwrap.dedent("""
+    ******** JUDGE THE PURVIEW OF THE FOLLOWING QUESTION ********
+    QUESTION:  {0}
+    (1) IN PURVIEW
+    (2) OUT OF PURVIEW
+
+    YOUR JUDGMENT: """).format(question))
+
+    if judgment == '1':
+        return True
+    elif judgment == '2':
+        return False
+    else:
+        return _get_in_purview_judgment(question)
+
+
+def _judge_answer(row):
+    judgment = raw_input(textwrap.dedent("""
+    ******** JUDGE THE ANSWER TO THE FOLLOWING QUESTION ********
+    QUESTION:  {0}
+    ANSWER:    {1}
+    (1) CORRECT
+    (2) INCORRECT
+
+    YOUR JUDGMENT: """).format(row[1][QUESTION], row[1][ANSWER]))
+
+    if judgment == '1':
+        return True
+    elif judgment == '2':
+        return False
+    else:
+        return _judge_answer(row)
+
+
+def in_purview_disagreement_evaluate(systems_data, output_file):
+
+    purview_disagreement = in_purview_disagreement(systems_data)
+    questions_to_judge = purview_disagreement[QUESTION].unique()
+    for question in questions_to_judge:
+
+        purview_judgment = _get_in_purview_judgment(question)
+
+        current_question_rows = systems_data[systems_data[QUESTION] == question]
+        for row in current_question_rows.iterrows():
+            index = row[0]
+            original_judgment = row[1]["In Purview"]
+
+            if purview_judgment != original_judgment:
+                if purview_judgment:
+                    systems_data.ix[index, IN_PURVIEW] = True
+                    systems_data.ix[index, CORRECT] = _judge_answer(row)
+                else:
+                    systems_data.ix[index, IN_PURVIEW] = False
+                    systems_data.ix[index, CORRECT] = False
+            to_csv(output_file, systems_data, index=False)
+        # break
+    # print systems_data[systems_data[QUESTION] == question
+    return systems_data
 
 
 def oracle_combination(systems_data, system_names, oracle_name):
@@ -313,6 +368,143 @@ def oracle_combination(systems_data, system_names, oracle_name):
                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
     log_correct(oracle, oracle_name)
     return oracle
+
+
+def _create_combined_fallback_system_at_threshold(default_systems_data, secondary_system_data, threshold):
+    """
+    Combine results from two systems into a single fallback system. The default system will answer the question if
+    the confidence is above the given threshold.
+
+    :param default_systems_data: collated results for the default system (if confidence > t)
+    :type default_systems_data: pandas.DataFrame
+    :param secondary_system_data: collated results for the secondary system (if default_confidence < t)
+    :type default_system: pandas.DataFrame
+    :param threshold: (t) the confidence threshold to determine what system answers the question
+    :type secondary_system: float
+    :return: Fallback results in collated format
+    :rtype: pandas.DataFrame
+    """
+    percentile = 'Percentile'
+    default_systems_data[percentile] = __standardize_confidence(default_systems_data)
+    secondary_system_data[percentile] = __standardize_confidence(secondary_system_data)
+
+    combined_from_default = default_systems_data[default_systems_data[CONFIDENCE] >= threshold]
+    combined_from_secondary = secondary_system_data[~secondary_system_data[QUESTION].isin(combined_from_default[QUESTION])]
+
+    combined = pandas.concat([combined_from_default, combined_from_secondary])
+    combined[CONFIDENCE] = combined[percentile]
+    combined.drop([percentile], axis="columns")
+    return combined
+
+
+def fallback_combination(systems_data, default_system, secondary_system):
+    """
+    Combine results from two systems into a single fallback system. The default system will answer the question if
+    the confidence is above a certain threshold. This method will find the optimal confidence threshold.
+
+    :param systems_data: collated results for the input systems
+    :type systems_data: pandas.DataFrame
+    :param default_system: the name of the default system (if confidence > t)
+    :type default_system: str
+    :param secondary_system: the name of the fallback system (if default_confidence < t)
+    :type secondary_system: str
+    :return: Fallback results in collated format
+    :rtype: pandas.DataFrame
+    """
+    default_system_data = systems_data[systems_data[SYSTEM] == default_system]
+    secondary_system_data = systems_data[systems_data[SYSTEM] == secondary_system]
+
+    intersecting_questions = set(default_system_data[QUESTION]).intersection(set(secondary_system_data[QUESTION]))
+
+    logger.warn("{0} questions in default system".format(len(default_system_data)))
+    logger.warn("{0} questions in secondary system".format(len(secondary_system_data)))
+    logger.warn("{0} questions in overlapping set".format(len(intersecting_questions)))
+
+    default_system_data = default_system_data[default_system_data[QUESTION].isin(intersecting_questions)]
+    secondary_system_data = secondary_system_data[secondary_system_data[QUESTION].isin(intersecting_questions)]
+
+    unique_confidences = default_system_data[CONFIDENCE].unique()
+
+    best_threshold, best_precision = 0, 0
+    for threshold in unique_confidences:
+        combined_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, threshold)
+
+        system_precision = precision(combined_system, 0)
+        if system_precision > best_precision:
+            best_precision = system_precision
+            best_threshold = threshold
+
+    logger.info("Default system accuracy:   {0}%".format(str(precision(default_system_data, 0) * 100)[:4]))
+    logger.info("Secondary system accuracy: {0}%".format(str(precision(secondary_system_data, 0) * 100)[:4]))
+    logger.info("Combined system accuracy:  {0}%".format(str(best_precision * 100)[:4]))
+
+    logger.info("Combined system best threshold: {0}".format(best_threshold))
+
+    best_system = _create_combined_fallback_system_at_threshold(default_system_data, secondary_system_data, best_threshold)
+    best_system[ANSWERING_SYSTEM] = best_system[SYSTEM]
+    best_system[SYSTEM] = "{0}_FALLBACK_{1}_AT_{2}".format(default_system, secondary_system, str(best_threshold)[:4])
+
+    logger.info("Questions answered by {0}: {1}%".format(default_system, str(100 * float(len(best_system[best_system[ANSWERING_SYSTEM] == default_system])) / len(best_system))[:4]))
+
+    best_system[CONFIDENCE] = __standardize_confidence(best_system)
+    return best_system
+
+
+def voting_router(systems_data, system_names, voting_name):
+    """
+    Combine results from multiple systems into a single that uses voting to decide which system should answer.
+
+    :param systems_data: collated results for all systems.
+    :type systems_data: pandas.DataFrame
+    :param system_names: names of systems to combine
+    :type system_names: list of str
+    :param voting_name: the name of the combined system
+    :type voting_name: str
+    :return: voting system results in collated format
+    :rtype: pandas.DataFrame
+    """
+    def log_correct(system_data, name):
+        n = len(system_data)
+        m = sum(system_data[CORRECT])
+        logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
+
+    systems_data = drop_missing(systems_data)
+    systems = []
+    for system_name in system_names:
+        system = systems_data[systems_data[SYSTEM] == system_name].set_index(QUESTION)
+        log_correct(system, system_name)
+        systems.append(system)
+
+        # Calculate the precision and question_attempted for each threshold, use it for standardized confidences
+        ts = confidence_thresholds(system, False)
+        ps = [precision(system, t) for t in ts]
+        qas = [questions_attempted(system, t) for t in ts]
+        system['pgc'] = __standardize_confidence(system, method='precision')
+            #system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+            #                                                                 method='precision_only'), axis=1)
+
+    # Get the questions asked to all the systems.
+    questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
+    # Start the voting results with a copy of one of the systems using only the intersecting questions
+    voting = systems[0].loc[questions].copy()
+    voting = voting.drop([ANSWER, CONFIDENCE, "pgc", CORRECT], axis="columns")
+    voting[SYSTEM] = voting_name
+
+    # Find the best precision grounded confidences to find the top system.
+    pgcs = [system[['pgc']].rename(columns={'pgc': system[SYSTEM][0]}) for system in systems]
+    system_pgcs = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True), pgcs)
+    rows = [True for x in range(0, len(voting))]
+    voting.loc[rows, ANSWERING_SYSTEM] = system_pgcs[rows].idxmax(axis=1)
+    voting.loc[rows, CONFIDENCE] = system_pgcs[rows].max(axis=1)
+    #voting.loc[rows, 'PGC'] = system_pgcs[rows].max(axis=1)
+
+    voting = voting.reset_index()
+    voting[ANSWER] = pandas.merge(systems_data, voting,
+                                  left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[ANSWER]
+    voting[CORRECT] = pandas.merge(systems_data, voting,
+                                   left_on=[QUESTION, SYSTEM], right_on=[QUESTION, ANSWERING_SYSTEM])[CORRECT]
+    log_correct(voting, voting_name)
+    return voting
 
 
 def filter_judged_answers(systems_data, correct, system_names):
@@ -386,7 +578,7 @@ def drop_missing(systems_data):
     return systems_data
 
 
-def kfold_split(df, outdir, _folds = 5, _training_header = False):
+def kfold_split(df, outdir, _folds=5, _training_header=False):
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
@@ -396,20 +588,20 @@ def kfold_split(df, outdir, _folds = 5, _training_header = False):
     logger.info("Results written to output folder " + outdir)
 
     for x in range(0, _folds):
-        fold_low = x*foldSize
-        fold_high = (x+1)*foldSize
+        fold_low = x * foldSize
+        fold_high = (x + 1) * foldSize
 
-        if fold_high >= len(df):
-            fold_high = len(df)
+    if fold_high >= len(df):
+        fold_high = len(df)
 
-        test_df = df.iloc[fold_low:fold_high]
-        train_df = df.drop(df.index[fold_low:fold_high])
+    test_df = df.iloc[fold_low:fold_high]
+    train_df = df.drop(df.index[fold_low:fold_high])
 
-        test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
-        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
+    test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
+    train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
 
-        logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
-        logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
+    logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
+    logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
 
 # NLC as router functions
 
@@ -495,14 +687,18 @@ class CollatedFileType(CsvFileType):
         super(self.__class__, self).__init__(self.__class__.columns)
 
     def __call__(self, filename):
-        collated = super(self.__class__, self).__call__(filename)
-        m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
-        if m:
-            n = len(collated)
-            logger.warning(
-                "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
-                % (m, n, filename, 100.0 * m / n))
-        return collated
+        if os.path.isfile(filename):
+            collated = super(self.__class__, self).__call__(filename)
+            m = sum(collated[collated[IN_PURVIEW] == False][CORRECT])
+            if m:
+                n = len(collated)
+                logger.warning(
+                    "%d out of %d question/answer pairs in %s are marked as out of purview but correct (%0.3f%%)"
+                    % (m, n, filename, 100.0 * m / n))
+            return collated
+        else:
+            logger.info("{0} does not exist".format(filename))
+            return None
 
     @classmethod
     def output_format(cls, collated):
