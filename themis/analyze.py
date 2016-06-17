@@ -424,7 +424,7 @@ def nlc_router_train(url, username, password, oracle_out, path):
     classifier_list = []
 
     for x in range(0, 5):
-        train = pandas.read_csv(os.path.join("Train" + str(x) + ".csv"))
+        train = pandas.read_csv(os.path.join(path, "Train" + str(x) + ".csv"))
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
@@ -435,30 +435,32 @@ def nlc_router_train(url, username, password, oracle_out, path):
             pretty_print_json(classifier_id)
     return classifier_list
 
+
 # testing and merging
 def nlc_router_test(url, username, password, collate_file,path,classifier_list):
     for x in range(0, 5):
-        test = pandas.read_csv(os.path.join(path,"Test" + str(x) + ".csv"))
+        test = pandas.read_csv(os.path.join(path, "Test" + str(x) + ".csv"))
         test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
         classifier_id = classifier_list[x]
         n = NLC(url, username, password,  classifier_id, test)
-        out_file = "Out" + str(x) + ".csv"
+        out_file = os.path.join(path,"Out" + str(x) + ".csv")
+        logger.info("Testing on fold " + str(x) + ":")
         answer_router_questions(n, set(test[QUESTION]), out_file)
 
     # Concatenate multiple trained output into single csv file
     dfList = []
     columns = [QUESTION,SYSTEM]
     for x in range(0, 5):
-        df = pandas.read_csv(os.path.join(path,"Out" + str(x) + ".csv", header = 0))
+        df = pandas.read_csv(os.path.join(path,"Out" + str(x) + ".csv"), header = 0)
         dfList.append(df)
 
     concateDf = pandas.concat(dfList, axis = 0)
     concateDf.columns = columns
-    concateDf.to_csv(os.path.join(path,"Interim-Result.csv", index = None))
+    concateDf.to_csv(os.path.join(path,"Interim-Result.csv"), encoding='utf-8', index = None)
 
     # Join operation to get fields from oracle collated file
-    result = pandas.merge(concateDf,collate_file)
+    result = pandas.merge(concateDf,collate_file, on=[QUESTION])
     return result
 
 
@@ -471,10 +473,10 @@ def answer_router_questions(system,questions,output):
         questions = sorted(questions - answers.recovered)
         n = len(answers.recovered) + len(questions)
         for i, question in enumerate(questions, len(answers.recovered) + 1):
-            if i is 1 or i == n:
+            if i is 1 or i == n or i % 25 == 0:
                 logger.info(percent_complete_message("Question", i, n))
             answer = system.query(question.replace("\n", " "))
-            logger.debug("%s\t%s" % (question, answer))
+            #logger.debug("%s\t%s" % (question, answer))
             answers.write(question, answer)
     finally:
         answers.close()
