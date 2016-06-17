@@ -424,21 +424,21 @@ def nlc_router_train(url, username, password, oracle_out, path):
     classifier_list = []
 
     for x in range(0, 5):
-        train = pandas.read_csv("Train" + str(x) + ".csv")
+        train = pandas.read_csv(os.path.join("Train" + str(x) + ".csv"))
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
             nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
             classifier_id = nlc.create(training_data=training_file)
-            classifier_list.append(classifier_id)
+            classifier_list.append(classifier_id["classifier_id"].encode("utf-8"))
             logger.info(pretty_print_json(classifier_id))
+            pretty_print_json(classifier_id)
     return classifier_list
 
 # testing and merging
-def nlc_router_test(url, username, password, oracle_in, oracle_out, outdir):
-    classifier_list = nlc_router_train(url, username, password, oracle_out, outdir)
+def nlc_router_test(url, username, password, collate_file,classifier_list):
     for x in range(0, 5):
-        test = pandas.read_csv("Test" + str(x) + ".csv")
+        test = pandas.read_csv(os.path.join("Test" + str(x) + ".csv"))
         test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
         classifier_id = classifier_list[x]
@@ -450,16 +450,16 @@ def nlc_router_test(url, username, password, oracle_in, oracle_out, outdir):
     dfList = []
     columns = [QUESTION,SYSTEM]
     for x in range(0, 5):
-        df = pandas.read_csv("Out" + str(x) + ".csv", header = 0)
+        df = pandas.read_csv(os.path.join("Out" + str(x) + ".csv", header = 0))
         dfList.append(df)
 
     concateDf = pandas.concat(dfList, axis = 0)
     concateDf.columns = columns
-    concateDf.to_csv("Interim-Result.csv", index = None)
+    concateDf.to_csv(os.path.join("Interim-Result.csv", index = None))
 
     # Join operation to get fields from oracle collated file
-    result = pandas.merge(concateDf,oracle_in)
-    result.to_csv("Final-Result.csv", index=False)
+    result = pandas.merge(concateDf,collate_file)
+    result.to_csv(os.path.join("Final-Result.csv", index=False))
 
 
 def answer_router_questions(system,questions,output):

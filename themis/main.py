@@ -476,7 +476,7 @@ def nlc_router_train_handler(args):
     print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path))
 
 def nlc_router_test_handler(args):
-    nlc_router_test(args.url, args.username, args.password, args.oracle_in, args.oracle_out, args.outdir)
+   print(nlc_router_test(args.url, args.username, args.password, args.collate_file, args.ids))
 
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
@@ -830,10 +830,9 @@ def analyze_command(parser, subparsers):
    #test
 
     nlc_router_test = nlc_router_subparsers.add_parser("test", parents=[nlc_common_arguments], help="test NLC model")
-    nlc_router_test.add_argument("oracle_in", type=CsvFileType(), help="collated file created for oracle input")
-    nlc_router_test.add_argument("oracle_out", type=CsvFileType(), help="collated file created by oracle experiment")
-    nlc_router_test.add_argument("outdir",  help="directory path to save intermediate results")
-    nlc_router.set_defaults(func=nlc_router_test_handler)
+    nlc_router_test.add_argument("collate_file", type=CsvFileType(), help="collated file created for oracle input")
+    nlc_router_test.add_argument("-ids", nargs="+", type=str, help="list of classifier ids", required=True)
+    nlc_router_test.set_defaults(func=nlc_router_test_handler)
 
 
 
