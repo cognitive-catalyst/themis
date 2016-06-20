@@ -3,23 +3,23 @@ import itertools
 import math
 import os
 import os.path
+import tempfile
 import textwrap
 
 import numpy as np
 import pandas
 from bs4 import BeautifulSoup
 from nltk import FreqDist, word_tokenize
+from watson_developer_cloud import \
+    NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
-from themis import  QUESTION, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY, logger, ANSWER_ID,to_csv,CsvFileType,\
-    pretty_print_json, percent_complete_message
-#from themis.nlc import nlc_router_train
-from themis.answer import answer_questions
-import tempfile
-from watson_developer_cloud import NaturalLanguageClassifierV1 as NaturalLanguageClassifier
-from themis.nlc import (NLC)
+from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
+                    IN_PURVIEW, QUESTION, CsvFileType, logger,
+                    percent_complete_message, pretty_print_json, to_csv)
 from themis.checkpoint import DataFrameCheckpoint
-from themis.metrics import (confidence_thresholds, precision,
-                            precision_grounded_confidence, questions_attempted, __standardize_confidence)
+from themis.metrics import (__standardize_confidence, confidence_thresholds,
+                            precision, questions_attempted)
+from themis.nlc import NLC
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -237,7 +237,7 @@ def in_purview_disagreement(systems_data):
     :rtype: pandas.DataFrame
     """
     question_groups = systems_data[[QUESTION, IN_PURVIEW]].groupby(QUESTION)
-    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) > 1 ).index
+    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) > 1).index
     purview_disagreement = systems_data.loc[index]
     m = len(purview_disagreement[QUESTION].drop_duplicates())
     if m:
@@ -480,8 +480,8 @@ def voting_router(systems_data, system_names, voting_name):
         ps = [precision(system, t) for t in ts]
         qas = [questions_attempted(system, t) for t in ts]
         system['pgc'] = __standardize_confidence(system, method='precision')
-            #system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
-            #                                                                 method='precision_only'), axis=1)
+        # system.apply(lambda x: precision_grounded_confidence(ts, ps, qas, x[CONFIDENCE],
+        #                                                                 method='precision_only'), axis=1)
 
     # Get the questions asked to all the systems.
     questions = functools.reduce(lambda m, i: m.intersection(i), (system.index for system in systems))
@@ -560,7 +560,11 @@ def add_judgments_and_frequencies_to_qa_pairs(qa_pairs, judgments, question_freq
     if remove_newlines:
         qa_pairs["Temp"] = qa_pairs[ANSWER].str.replace("\n", "")
         qa_pairs = qa_pairs.rename(columns={"Temp": ANSWER, ANSWER: "Temp"})
+
+        judgments[ANSWER] = judgments[ANSWER].str.replace("\n", "")
     qa_pairs = pandas.merge(qa_pairs, judgments, on=(QUESTION, ANSWER), how="left")
+    qa_pairs = qa_pairs.drop_duplicates([QUESTION, ANSWER])
+
     if remove_newlines:
         del qa_pairs[ANSWER]
         qa_pairs = qa_pairs.rename(columns={"Temp": ANSWER})
@@ -628,7 +632,7 @@ def nlc_router_train(url, username, password, oracle_out, path):
 
 
 # testing and merging
-def nlc_router_test(url, username, password, collate_file,path,classifier_list):
+def nlc_router_test(url, username, password, collate_file, path, classifier_list):
     def log_correct(system_data, name):
         n = len(system_data)
         m = sum(system_data[CORRECT])
@@ -639,31 +643,31 @@ def nlc_router_test(url, username, password, collate_file,path,classifier_list):
         test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
         classifier_id = classifier_list[x]
-        n = NLC(url, username, password,  classifier_id, test)
-        out_file = os.path.join(path,"Out" + str(x) + ".csv")
+        n = NLC(url, username, password, classifier_id, test)
+        out_file = os.path.join(path, "Out" + str(x) + ".csv")
         logger.info("Testing on fold " + str(x) + " using NLC classifier " + str(classifier_list[x]))
         answer_router_questions(n, set(test[QUESTION]), out_file)
 
     # Concatenate multiple trained output into single csv file
     dfList = []
-    columns = [QUESTION,SYSTEM]
+    columns = [QUESTION, SYSTEM]
     for x in range(0, 5):
-        df = pandas.read_csv(os.path.join(path,"Out" + str(x) + ".csv"), header = 0)
+        df = pandas.read_csv(os.path.join(path, "Out" + str(x) + ".csv"), header=0)
         dfList.append(df)
 
-    concateDf = pandas.concat(dfList, axis = 0)
+    concateDf = pandas.concat(dfList, axis=0)
     concateDf.columns = columns
-    concateDf.to_csv(os.path.join(path,"Interim-Result.csv"), encoding='utf-8', index = None)
+    concateDf.to_csv(os.path.join(path, "Interim-Result.csv"), encoding='utf-8', index=None)
 
     # Join operation to get fields from oracle collated file
-    result = pandas.merge(concateDf,collate_file, on=[QUESTION, SYSTEM])
-    result = result.rename(columns = {SYSTEM: ANSWERING_SYSTEM})
+    result = pandas.merge(concateDf, collate_file, on=[QUESTION, SYSTEM])
+    result = result.rename(columns={SYSTEM: ANSWERING_SYSTEM})
     result[SYSTEM] = 'NLC-as-router'
     log_correct(result, 'NLC-as-router')
     return result
 
 
-def answer_router_questions(system,questions,output):
+def answer_router_questions(system, questions, output):
     logger.info("Get answers to %d questions from %s" % (len(questions), system))
     answers = DataFrameCheckpoint(output, [QUESTION, ANSWERING_SYSTEM])
     try:
@@ -679,6 +683,7 @@ def answer_router_questions(system,questions,output):
             answers.write(question, answer)
     finally:
         answers.close()
+
 
 class CollatedFileType(CsvFileType):
     columns = [QUESTION, SYSTEM, ANSWER, CONFIDENCE, IN_PURVIEW, CORRECT, FREQUENCY]
