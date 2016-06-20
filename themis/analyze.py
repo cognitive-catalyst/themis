@@ -233,7 +233,7 @@ def in_purview_disagreement(systems_data):
     :rtype: pandas.DataFrame
     """
     question_groups = systems_data[[QUESTION, IN_PURVIEW]].groupby(QUESTION)
-    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) > 1 ).index
+    index = question_groups.filter(lambda qg: len(qg[IN_PURVIEW].unique()) > 1).index
     purview_disagreement = systems_data.loc[index]
     m = len(purview_disagreement[QUESTION].drop_duplicates())
     if m:
@@ -407,6 +407,8 @@ def fallback_combination(systems_data, default_system, secondary_system):
     :return: Fallback results in collated format
     :rtype: pandas.DataFrame
     """
+    systems_data = drop_missing(systems_data)
+
     default_system_data = systems_data[systems_data[SYSTEM] == default_system]
     secondary_system_data = systems_data[systems_data[SYSTEM] == secondary_system]
 
