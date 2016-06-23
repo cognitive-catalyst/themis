@@ -582,7 +582,7 @@ def drop_missing(systems_data):
     return systems_data
 
 
-def kfold_split(df, outdir, _folds=5, _training_header=False):
+def kfold_split(df, outdir, _folds = 5, _training_header=False):
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
@@ -615,10 +615,10 @@ def nlc_router_train(url, username, password, oracle_out, path):
     sys_name = oracle_out[SYSTEM][0]
     oracle_out = oracle_out[[QUESTION, ANSWERING_SYSTEM]]
     oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
-    kfold_split(oracle_out, path, 5, True)
+    kfold_split(oracle_out, path, 8, True)
     classifier_list = []
 
-    for x in range(0, 5):
+    for x in range(0, 8):
         train = pandas.read_csv(os.path.join(path, "Train" + str(x) + ".csv"))
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
@@ -638,7 +638,7 @@ def nlc_router_test(url, username, password, collate_file, path, classifier_list
         m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
 
-    for x in range(0, 5):
+    for x in range(0, 8):
         test = pandas.read_csv(os.path.join(path, "Test" + str(x) + ".csv"))
         test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
@@ -651,7 +651,7 @@ def nlc_router_test(url, username, password, collate_file, path, classifier_list
     # Concatenate multiple trained output into single csv file
     dfList = []
     columns = [QUESTION, SYSTEM]
-    for x in range(0, 5):
+    for x in range(0, 8):
         df = pandas.read_csv(os.path.join(path, "Out" + str(x) + ".csv"), header=0)
         dfList.append(df)
 
@@ -663,6 +663,7 @@ def nlc_router_test(url, username, password, collate_file, path, classifier_list
     result = pandas.merge(concateDf, collate_file, on=[QUESTION, SYSTEM])
     result = result.rename(columns={SYSTEM: ANSWERING_SYSTEM})
     result[SYSTEM] = 'NLC-as-router'
+    result[CONFIDENCE] = __standardize_confidence(result)
     log_correct(result, 'NLC-as-router')
     return result
 
