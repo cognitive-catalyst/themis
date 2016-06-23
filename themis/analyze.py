@@ -613,6 +613,9 @@ def kfold_split(df, outdir, _folds = 5, _training_header=False):
 # k-folding and training
 def nlc_router_train(url, username, password, oracle_out, path):
     sys_name = oracle_out[SYSTEM][0]
+    #Ignore records from training which are not correct
+    oracle_out = oracle_out[oracle_out[CORRECT] == True]
+    oracle_out = oracle_out[oracle_out[IN_PURVIEW] == True]
     oracle_out = oracle_out[[QUESTION, ANSWERING_SYSTEM]]
     oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
     kfold_split(oracle_out, path, 8, True)
