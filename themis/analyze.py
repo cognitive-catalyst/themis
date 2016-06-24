@@ -623,7 +623,7 @@ def nlc_router_train(url, username, password, oracle_out, path, all_correct):
             # Ignore records from training which are not correct
             train = train[train[CORRECT] == True]
             train = train[train[IN_PURVIEW] == True]
-            train = train [[QUESTION,ANSWERING_SYSTEM]]
+        train = train [[QUESTION,ANSWERING_SYSTEM]]
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
