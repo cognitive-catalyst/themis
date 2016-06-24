@@ -611,7 +611,7 @@ def kfold_split(df, outdir, _folds = 5, _training_header=False):
 
 
 # k-folding and training
-def nlc_router_train(url, username, password, oracle_out, path):
+def nlc_router_train(url, username, password, oracle_out, path, all_correct):
     sys_name = oracle_out[SYSTEM][0]
     oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
     kfold_split(oracle_out, path, 8, True)
@@ -619,10 +619,11 @@ def nlc_router_train(url, username, password, oracle_out, path):
 
     for x in range(0, 8):
         train = pandas.read_csv(os.path.join(path, "Train" + str(x) + ".csv"))
-        # Ignore records from training which are not correct
-        train = train[train[CORRECT] == True]
-        train = train[train[IN_PURVIEW] == True]
-        train = train [[QUESTION,ANSWERING_SYSTEM]]
+        if all_correct:
+            # Ignore records from training which are not correct
+            train = train[train[CORRECT] == True]
+            train = train[train[IN_PURVIEW] == True]
+            train = train [[QUESTION,ANSWERING_SYSTEM]]
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)

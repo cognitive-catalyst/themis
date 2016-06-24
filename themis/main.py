@@ -469,7 +469,7 @@ def nlc_train_handler(args):
     print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
 
 def nlc_router_train_handler(args):
-    print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path))
+    print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path, args.all_correct))
 
 def nlc_router_test_handler(args):
    res = nlc_router_test(args.url, args.username, args.password, args.collate_file, args.path, args.ids)
@@ -864,6 +864,7 @@ def analyze_command(parser, subparsers):
     nlc_router_train = nlc_router_subparsers.add_parser("train", parents=[nlc_common_arguments], help="train NLC model")
     nlc_router_train.add_argument("oracle_out", type=CsvFileType(), help="file created by oracle experiment")
     nlc_router_train.add_argument("path", help="directory path to save intermediate results")
+    nlc_router_train.add_argument("--all_correct",type = str,help= "train with only correct QA pair")
     nlc_router_train.set_defaults(func=nlc_router_train_handler)
 
    #test
