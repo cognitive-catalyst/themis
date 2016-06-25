@@ -625,6 +625,7 @@ def nlc_router_train(url, username, password, oracle_out, path, all_correct):
             train = train[train[CORRECT] == True]
             train = train[train[IN_PURVIEW] == True]
         train = train [[QUESTION,ANSWERING_SYSTEM]]
+        logger.info("Training set size = " + str(len(train)))
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
