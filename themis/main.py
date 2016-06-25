@@ -864,7 +864,7 @@ def analyze_command(parser, subparsers):
     nlc_router_train = nlc_router_subparsers.add_parser("train", parents=[nlc_common_arguments], help="train NLC model")
     nlc_router_train.add_argument("oracle_out", type=CsvFileType(), help="file created by oracle experiment")
     nlc_router_train.add_argument("path", help="directory path to save intermediate results")
-    nlc_router_train.add_argument("--all_correct",type = str,help= "train with only correct QA pair")
+    nlc_router_train.add_argument("--all_correct", action ='store_true', default=False, help= "train with only correct QA pairs.")
     nlc_router_train.set_defaults(func=nlc_router_train_handler)
 
    #test

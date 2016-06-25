@@ -620,6 +620,7 @@ def nlc_router_train(url, username, password, oracle_out, path, all_correct):
     for x in range(0, 8):
         train = pandas.read_csv(os.path.join(path, "Train" + str(x) + ".csv"))
         if all_correct:
+            logger.info("Training only on CORRECT examples.")
             # Ignore records from training which are not correct
             train = train[train[CORRECT] == True]
             train = train[train[IN_PURVIEW] == True]
