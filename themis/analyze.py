@@ -348,7 +348,7 @@ def oracle_combination(systems_data, system_names, oracle_name):
     # An oracle question is correct if any system gets it right.
     systems_correct = [system.loc[questions][[CORRECT]] for system in systems]
     oracle[[CORRECT]] = functools.reduce(lambda m, x: m | x, systems_correct)
-    oracle.loc[oracle[IN_PURVIEW] == False, "Correct"] = False
+    oracle.loc[oracle[IN_PURVIEW] == False, CORRECT] = False
     # If the oracle answer is correct, use the highest confidence.
     confidences = [system[[percentile]].rename(columns={percentile: system[SYSTEM][0]}) for system in systems]
     system_confidences = functools.reduce(lambda m, x: pandas.merge(m, x, left_index=True, right_index=True),
