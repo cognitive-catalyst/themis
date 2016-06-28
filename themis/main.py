@@ -5,7 +5,6 @@ various Q&A systems, annotate the answers and analyze the results.
 
 import argparse
 import os
-import re
 import textwrap
 from argparse import RawDescriptionHelpFormatter as Raw
 
@@ -1043,7 +1042,11 @@ def _truncate_html(string, allowed_length, cut_length=None):
         return string
     else:
         new_string = str(BeautifulSoup(string[0:cut_length]))
-        return _truncate_html(new_string, allowed_length, cut_length - 1)
+
+        if len(new_string) <= allowed_length:
+            return new_string
+
+        return _truncate_html(string, allowed_length, cut_length - 1)
 
 
 def truncate_answers_handler(args):
