@@ -9,6 +9,7 @@ import textwrap
 from argparse import RawDescriptionHelpFormatter as Raw
 
 import pandas
+from BeautifulSoup import BeautifulSoup
 
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, DOCUMENT_ID,
                     FREQUENCY, IN_PURVIEW, QUESTION, CsvFileType, __version__,
@@ -1034,10 +1035,25 @@ def drop_null_handler(args):
     print_csv(non_null, index=False)
 
 
+def _truncate_html(string, allowed_length, cut_length=None):
+    if cut_length is None:
+        cut_length = allowed_length
+    if len(string) <= allowed_length:
+        return string
+    else:
+        new_string = str(BeautifulSoup(string[0:cut_length]))
+
+        if len(new_string) <= allowed_length:
+            return new_string
+
+        return _truncate_html(string, allowed_length, cut_length - 1)
+
+
 def truncate_answers_handler(args):
     aa_file = args.file
 
-    aa_file.TopAnswerText = aa_file.TopAnswerText.apply(lambda x: x[0:args.length])
+    aa_file.TopAnswerText = aa_file.TopAnswerText.apply(lambda x: _truncate_html(str(x), args.length))
+
     print_csv(aa_file, index=False)
 
 
