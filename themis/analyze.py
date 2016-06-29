@@ -261,14 +261,14 @@ def _get_in_purview_judgment(question):
 
 
 def _judge_answer(row):
-    judgment = raw_input(textwrap.dedent("""
+    judgment = raw_input((textwrap.dedent("""
     ******** JUDGE THE ANSWER TO THE FOLLOWING QUESTION ********
     QUESTION:  {0}
     ANSWER:    {1}
     (1) CORRECT
     (2) INCORRECT
 
-    YOUR JUDGMENT: """).format(row[1][QUESTION], row[1][ANSWER]))
+    YOUR JUDGMENT: """).format(row[1][QUESTION].encode('ascii', 'ignore'), row[1][ANSWER].encode('ascii', 'ignore'))))
 
     if judgment == '1':
         return True
