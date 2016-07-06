@@ -1,6 +1,6 @@
 import pandas
 
-from themis import ANSWER, logger, ANSWER_ID, CONFIDENCE
+from themis import ANSWER, ANSWER_ID, CONFIDENCE, logger
 from themis.question import DATE_TIME, USER_EXPERIENCE
 
 
@@ -58,10 +58,13 @@ def filter_usage_log_by_user_experience(usage_log, disallowed):
     :type disallowed: enumerable set of str
     :return: usage log with questions removed
     :rtype: pandas.DataFrame
-    """
-    n = len(usage_log)
-    usage_log = usage_log[~usage_log[USER_EXPERIENCE].isin(disallowed)]
-    logger.info("Removed %d questions with user experience '%s'" % ((n - len(usage_log)), ",".join(disallowed)))
+"""
+    if USER_EXPERIENCE in usage_log.columns:
+        n = len(usage_log)
+        usage_log = usage_log[~usage_log[USER_EXPERIENCE].isin(disallowed)]
+        logger.info("Removed %d questions with user experience '%s'" % ((n - len(usage_log)), ",".join(disallowed)))
+    else:
+        logger.warn("No {0} field in Usage Log".format(USER_EXPERIENCE))
     return usage_log
 
 
