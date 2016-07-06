@@ -7,6 +7,8 @@ import argparse
 import os
 import textwrap
 from argparse import RawDescriptionHelpFormatter as Raw
+from collections import Counter
+from random import shuffle
 
 import pandas
 from BeautifulSoup import BeautifulSoup
@@ -349,8 +351,21 @@ def extract_handler(args):
 
 def sample_handler(args):
     # Sample questions by frequency.
+
     questions = args.questions[[QUESTION, FREQUENCY]].drop_duplicates(QUESTION)
-    sample = questions.sample(args.sample_size, weights=FREQUENCY)
+
+    all_questions = []
+    for q in questions.iterrows():
+        all_questions += [q[1][QUESTION]] * q[1][FREQUENCY]
+    shuffle(all_questions)
+
+    sample_counter = Counter()
+    q_index = 0
+    while (len(sample_counter) < args.sample_size and q_index < len(all_questions)):
+        sample_counter[all_questions[q_index]] += 1
+        q_index += 1
+
+    sample = pandas.DataFrame.from_dict(sample_counter, orient='index').reset_index().rename(columns={'index': QUESTION, 0: FREQUENCY})
     print_csv(QuestionFrequencyFileType.output_format(sample))
 
 
