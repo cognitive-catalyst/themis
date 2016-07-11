@@ -46,6 +46,8 @@ from themis.xmgr import (CorpusFileType, DownloadCorpusFromXmgrClosure,
                          examine_truth, validate_answers_with_corpus,
                          validate_truth_with_corpus)
 
+from themis.rnr import create_cluster, create_config
+
 
 def main():
     parser = argparse.ArgumentParser(description="Themis analysis toolkit, version %s" % __version__)
@@ -452,6 +454,29 @@ def answer_command(subparsers):
     nlc_delete.add_argument("classifiers", nargs="+", help="classifier ids")
     nlc_delete.set_defaults(func=nlc_delete_handler)
 
+    # Manage Rnr Model:
+    rnr_shared_arguments = argparse.ArgumentParser(add_help=False)
+    rnr_shared_arguments.add_argument("url", help="Solr url")
+    rnr_shared_arguments.add_argument("username", help="Solr username")
+    rnr_shared_arguments.add_argument("password", help="Solr password")
+
+    rnr_parser = subparsers.add_parser("rnr",
+                                       help="answer questions with RnR")
+
+
+    rnr_subparsers = rnr_parser.add_subparsers(title="Retrieve and Rank",
+                                           description="create clusers,collection,upload config.,add documents and manage RnR", help="RnR actions")
+
+    # Create Cluster
+    rnr_cluster = rnr_subparsers.add_parser("create_cluster", parents=[rnr_shared_arguments], help="create Solr Cluster")
+    rnr_cluster.set_defaults(func=rnr_cluster_handler)
+
+    #create config
+
+    rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], help="PH")
+    rnr_config.add_argument("c_id", help="config id")
+    rnr_config.set_defaults(func=rnr_config_handler)
+
 
 def wea_handler(args):
     wea_answers = get_answers_from_usage_log(args.questions, args.qa_pairs)
@@ -465,6 +490,11 @@ def solr_handler(args):
 def nlc_train_handler(args):
     print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
 
+def rnr_cluster_handler(args):
+    print("Cluster ID: %s"%( create_cluster(args.url, args.username, args.password)))
+
+def rnr_config_handler(args):
+    print(create_config(args.url, args.username, args.password))
 
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
