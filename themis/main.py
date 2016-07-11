@@ -475,6 +475,7 @@ def answer_command(subparsers):
 
     rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], help="PH")
     rnr_config.add_argument("c_id", help="config id")
+    rnr_config.add_argument("zip_path", help="zip file path")
     rnr_config.set_defaults(func=rnr_config_handler)
 
 
@@ -494,7 +495,7 @@ def rnr_cluster_handler(args):
     print("Cluster ID: %s"%( create_cluster(args.url, args.username, args.password)))
 
 def rnr_config_handler(args):
-    print(create_config(args.url, args.username, args.password))
+    print(create_config(args.url, args.username, args.password,args.c_id,args.zip_path))
 
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
