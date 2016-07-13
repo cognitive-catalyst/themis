@@ -15,7 +15,7 @@ def classifier_status(url, username, password, classifier_ids):
     n = NaturalLanguageClassifier(url=url, username=username, password=password)
     for classifier_id in classifier_ids:
         status = n.status(classifier_id)
-        print("%s: %s" % (status["status"], status["status_description"]))
+        print(" Instance name: %s with classifier id %s is %s; Description: %s" % (status["name"],status["classifier_id"],status["status"], status["status_description"]))
 
 
 def remove_classifiers(url, username, password, classifier_ids):

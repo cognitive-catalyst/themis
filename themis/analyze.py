@@ -5,7 +5,7 @@ import os
 import os.path
 import tempfile
 import textwrap
-
+import json
 import numpy as np
 import pandas
 from bs4 import BeautifulSoup
@@ -19,7 +19,7 @@ from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
 from themis.checkpoint import DataFrameCheckpoint
 from themis.metrics import (__standardize_confidence, confidence_thresholds,
                             precision, questions_attempted)
-from themis.nlc import NLC
+from themis.nlc import NLC,classifier_status
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
@@ -616,6 +616,7 @@ def nlc_router_train(url, username, password, oracle_out, path, all_correct):
     oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
     kfold_split(oracle_out, path, 8, True)
     classifier_list = []
+    list = []
 
     for x in range(0, 8):
         train = pandas.read_csv(os.path.join(path, "Train" + str(x) + ".csv"))
@@ -632,17 +633,39 @@ def nlc_router_train(url, username, password, oracle_out, path, all_correct):
             nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
             classifier_id = nlc.create(training_data=training_file, name=str(sys_name) + '_fold_' + str(x))
             classifier_list.append(classifier_id["classifier_id"].encode("utf-8"))
+            list.append({classifier_id["name"].encode("utf-8") : classifier_id["classifier_id"].encode("utf-8")})
             logger.info(pretty_print_json(classifier_id))
             pretty_print_json(classifier_id)
+
+    with open(os.path.join(path,'classifier.json'),'wb') as f:
+        json.dump(list,f)
     return classifier_list
 
+# training status checking
+
+def nlc_router_status(url, username, password,path):
+    # import list of classifier from file
+    classifier_list = []
+    with open(os.path.join(path, 'classifier.json'), 'r') as f:
+        data = json.load(f)
+    for x in range(0, 8):
+        classifier_list.append(data[x]['NLC+Solr Oracle_fold_' + str(x)].encode("utf-8"))
+    classifier_status(url, username, password,classifier_list)
 
 # testing and merging
-def nlc_router_test(url, username, password, collate_file, path, classifier_list):
+def nlc_router_test(url, username, password, collate_file, path):
     def log_correct(system_data, name):
         n = len(system_data)
         m = sum(system_data[CORRECT])
         logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
+
+    # import list of classifier from file
+    classifier_list = []
+    with open(os.path.join(path, 'classifier.json'), 'r') as f:
+        data = json.load(f)
+    for x in range(0, 8):
+        classifier_list.append(data[x]['NLC+Solr Oracle_fold_' + str(x)].encode("utf-8"))
+
 
     for x in range(0, 8):
         test = pandas.read_csv(os.path.join(path, "Test" + str(x) + ".csv"))

@@ -16,7 +16,7 @@ from themis import configure_logger, CsvFileType, to_csv, QUESTION, ANSWER_ID, p
 from themis.analyze import SYSTEM, CollatedFileType, add_judgments_and_frequencies_to_qa_pairs, system_similarity, \
     compare_systems, oracle_combination, filter_judged_answers, corpus_statistics, truth_statistics, \
     in_purview_disagreement, analyze_answers, truth_coverage, OracleFileType, long_tail_fat_head, kfold_split, \
-nlc_router_train, nlc_router_test
+nlc_router_train,nlc_router_status, nlc_router_test
 
 from themis.analyze import (SYSTEM, CollatedFileType, OracleFileType,
                             add_judgments_and_frequencies_to_qa_pairs,
@@ -471,8 +471,11 @@ def nlc_train_handler(args):
 def nlc_router_train_handler(args):
     print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path, args.all_correct))
 
+def nlc_router_status_handler(args):
+    print(nlc_router_status(args.url, args.username, args.password,args.path))
+
 def nlc_router_test_handler(args):
-   res = nlc_router_test(args.url, args.username, args.password, args.collate_file, args.path, args.ids)
+   res = nlc_router_test(args.url, args.username, args.password, args.collate_file, args.path)
    print_csv(OracleFileType.output_format(res))
 
 def nlc_use_handler(args):
@@ -867,12 +870,16 @@ def analyze_command(parser, subparsers):
     nlc_router_train.add_argument("--all_correct", action ='store_true', default=False, help= "train with only correct QA pairs.")
     nlc_router_train.set_defaults(func=nlc_router_train_handler)
 
+    # training status
+    nlc_router_status = nlc_router_subparsers.add_parser("status", parents=[nlc_common_arguments], help="status of classifier ids")
+    nlc_router_status.add_argument("path", help="local directory path")
+    nlc_router_status.set_defaults(func=nlc_router_status_handler)
+
    #test
 
     nlc_router_test = nlc_router_subparsers.add_parser("test", parents=[nlc_common_arguments], help="test NLC model")
     nlc_router_test.add_argument("collate_file", type=CsvFileType(), help="collated file created for oracle input")
     nlc_router_test.add_argument("path", help="directory path to save intermediate results")
-    nlc_router_test.add_argument("-ids", nargs="+", type=str, help="list of classifier ids", required=True)
     nlc_router_test.set_defaults(func=nlc_router_test_handler)
 
 
