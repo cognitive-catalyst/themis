@@ -46,7 +46,8 @@ from themis.xmgr import (CorpusFileType, DownloadCorpusFromXmgrClosure,
                          examine_truth, validate_answers_with_corpus,
                          validate_truth_with_corpus)
 
-from themis.rnr import create_cluster, create_config
+from themis.rnr import create_cluster, create_config, create_ranker,query_ranker,query_untrained_ranker,\
+query_trained_rnr,query_untrained_rnr
 
 
 def main():
@@ -474,9 +475,39 @@ def answer_command(subparsers):
     #create config
 
     rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], help="PH")
-    rnr_config.add_argument("c_id", help="config id")
-    rnr_config.add_argument("zip_path", help="zip file path")
+    rnr_config.add_argument("c_id", help="cluster id")
+    rnr_config.add_argument("path", help="local directory path")
+    rnr_config.add_argument("schema_file", help="schema file")
+    rnr_config.add_argument("corpus_file", help="corpus file")
     rnr_config.set_defaults(func=rnr_config_handler)
+
+    #ranker
+    rnr_ranker = rnr_subparsers.add_parser("ranker", parents=[rnr_shared_arguments], help="PH")
+    rnr_ranker.add_argument("c_id", help="cluster id")
+    rnr_ranker.add_argument("path", help="local directory path")
+    rnr_ranker.add_argument("truth", type=CsvFileType(),help="ground truth file")
+    rnr_ranker.set_defaults(func=rnr_ranker_handler)
+
+
+    # query ranker
+    rnr_ranker_query = rnr_subparsers.add_parser("ranker_query", parents = [rnr_shared_arguments], help= " query the ranker ")
+    rnr_ranker_query.add_argument("c_id", help="cluster id")
+    rnr_ranker_query.add_argument("ranker", help= "ranker id")
+    rnr_ranker_query.add_argument("question_file", help= "question to solr")
+    rnr_ranker_query.set_defaults(func=rnr_ranker_query_handler)
+
+    # query sample questions for trained RnR
+    rnr_sample_questions_query = rnr_subparsers.add_parser("ranker_query", parents = [rnr_shared_arguments], help= " query the ranker ")
+    rnr_sample_questions_query.add_argument("c_id", help="cluster id")
+    rnr_sample_questions_query.add_argument("ranker", help= "ranker id")
+    rnr_sample_questions_query.add_argument("query_file", help= "sample questions file to query solr")
+    rnr_sample_questions_query.set_defaults(func=rnr_query_trained_rnr_handler)
+
+    # query sample questions for untrained RnR
+    rnr_untrained_sample_questions_query = rnr_subparsers.add_parser("untrained_ranker_query", parents = [rnr_shared_arguments], help= " query the ranker ")
+    rnr_untrained_sample_questions_query.add_argument("c_id", help="cluster id")
+    rnr_untrained_sample_questions_query.add_argument("query_file", help= "sample questions file to query solr")
+    rnr_untrained_sample_questions_query.set_defaults(func=rnr_query_untrained_rnr_handler)
 
 
 def wea_handler(args):
@@ -492,11 +523,22 @@ def nlc_train_handler(args):
     print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
 
 def rnr_cluster_handler(args):
-    print("Cluster ID: %s"%( create_cluster(args.url, args.username, args.password)))
+    create_cluster(args.url, args.username, args.password)
 
 def rnr_config_handler(args):
-    print(create_config(args.url, args.username, args.password,args.c_id,args.zip_path))
+    print(create_config(args.url, args.username, args.password,args.c_id,args.path,args.schema_file,args.corpus_file))
 
+def rnr_ranker_handler(args):
+    print(create_ranker(args.url, args.username, args.password,args.c_id,args.path,args.truth))
+
+def rnr_ranker_query_handler(args):
+    print(query_ranker(args.url, args.username, args.password, args.c_id, args.ranker, args.question_file))
+
+def rnr_query_trained_rnr_handler(args):
+    print(query_trained_rnr(args.url, args.username, args.password, args.c_id, args.ranker, args.query_file))
+
+def rnr_query_untrained_rnr_handler(args):
+    print(query_untrained_rnr(args.url, args.username, args.password, args.c_id, args.query_file))
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
     n = NLC(args.url, args.username, args.password, args.classifier, corpus)
