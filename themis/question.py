@@ -109,14 +109,23 @@ class UsageLogFileType(CsvFileType):
 
 
 class QAPairFileType(CsvFileType):
-    columns = [QUESTION, ANSWER, CONFIDENCE, USER_EXPERIENCE, FREQUENCY, DATE_TIME]
+    canonical_cols = [QUESTION, FREQUENCY]
+    full_cols = [QUESTION, ANSWER, CONFIDENCE, USER_EXPERIENCE, FREQUENCY, DATE_TIME]
 
-    def __init__(self):
-        super(self.__class__, self).__init__(QAPairFileType.columns)
+    def __init__(self, columns=full_cols):
+        super(self.__class__, self).__init__(columns)
+
+    def __call__(self, filename):
+        try:
+            qa_pairs = super(self.__class__, self).__call__(filename)
+        except ValueError:
+            self.__init__(QAPairFileType.canonical_cols)
+            qa_pairs = super(self.__class__, self).__call__(filename)
+        return qa_pairs
 
     @staticmethod
     def output_format(qa_pairs):
-        columns = list(set(qa_pairs.columns).intersection(QAPairFileType.columns))
+        columns = list(set(qa_pairs.columns).intersection(QAPairFileType.full_cols))
         qa_pairs = qa_pairs[columns]
         qa_pairs = qa_pairs.sort_values([FREQUENCY, CONFIDENCE, QUESTION], ascending=(False, False, True))
         return qa_pairs.set_index([QUESTION, ANSWER])
