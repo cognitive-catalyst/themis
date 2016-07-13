@@ -10,20 +10,22 @@ def wait(condition, timeout, period=10):
   end = time.time() + timeout
   try:
     while time.time() < end:
-        if condition:
+        if condition():
             return True
         time.sleep(period)
   except:
       return False
   return False
 
-def create_cluster(url, username, password):
-    name = "solr_cluster"
+def create_cluster(url, username, password,cluster_name):
+    if not cluster_name:
+        cluster_name = "solr_cluster"
     rnr = RetriveandRank(url=url, username=username, password=password)
-    cluster = rnr.create_solr_cluster(cluster_name=name)
+    cluster = rnr.create_solr_cluster(cluster_name=cluster_name)
     print('Cluster creation starting....')
-    condition = rnr.get_solr_cluster_status(cluster['solr_cluster_id'])['solr_cluster_status'] == 'READY'
-    wait(condition,600)
+    print cluster
+
+    wait(rnr.get_solr_cluster_status(cluster['solr_cluster_id'])['solr_cluster_status'] == 'READY',600)
     print('Cluster created successfully and ready to use. cluster id: %s'%cluster['solr_cluster_id'])
 
 def create_config(url, username, password,c_id,path,schema_file,corpus_file):
@@ -53,7 +55,6 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file):
     logger.info('corpus file successfully converted to json as: corpus.json')
 
     # add documents to collection
-    collection_name = "solr_collection"
     logger.info('Adding documents to collection...')
     status = upload_corpus(url, username, password, c_id, os.path.join(path,'corpus.json'),collection_name)
     #logger.info(pretty_print_json(status))

@@ -466,10 +466,11 @@ def answer_command(subparsers):
 
 
     rnr_subparsers = rnr_parser.add_subparsers(title="Retrieve and Rank",
-                                           description="create clusers,collection,upload config.,add documents and manage RnR", help="RnR actions")
+                                           description="create clusters,collection,upload config.,add documents and manage RnR", help="RnR actions")
 
     # Create Cluster
     rnr_cluster = rnr_subparsers.add_parser("create_cluster", parents=[rnr_shared_arguments], help="create Solr Cluster")
+    rnr_cluster.add_argument("--cluster_name", help="cluster name")
     rnr_cluster.set_defaults(func=rnr_cluster_handler)
 
     #create config
@@ -523,7 +524,7 @@ def nlc_train_handler(args):
     print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
 
 def rnr_cluster_handler(args):
-    create_cluster(args.url, args.username, args.password)
+    create_cluster(args.url, args.username, args.password,args.cluster_name)
 
 def rnr_config_handler(args):
     print(create_config(args.url, args.username, args.password,args.c_id,args.path,args.schema_file,args.corpus_file))
