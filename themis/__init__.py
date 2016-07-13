@@ -7,7 +7,7 @@ import sys
 
 import pandas
 
-__version__= "2.4.0"
+__version__ = "2.4.0"
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class CsvFileType(object):
             csv.filename = filename
             return csv
         except ValueError as e:
-            print("Invalid format for %s: %s" % (filename, e), file=sys.stderr)
+            logger.info(e)
             raise e
 
 
