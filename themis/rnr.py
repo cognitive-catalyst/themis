@@ -6,13 +6,13 @@ import csv
 import pandas
 import requests, os
 
-def wait(condition, timeout, period=0.25):
+def wait(condition, timeout, period=10):
   end = time.time() + timeout
   try:
     while time.time() < end:
         if condition:
             return True
-        #time.sleep(period)
+        time.sleep(period)
   except:
       return False
   return False
@@ -22,7 +22,8 @@ def create_cluster(url, username, password):
     rnr = RetriveandRank(url=url, username=username, password=password)
     cluster = rnr.create_solr_cluster(cluster_name=name)
     print('Cluster creation starting....')
-    wait((rnr.get_solr_cluster_status(cluster['solr_cluster_id'])['solr_cluster_status'] == 'READY'),600)
+    condition = rnr.get_solr_cluster_status(cluster['solr_cluster_id'])['solr_cluster_status'] == 'READY'
+    wait(condition,600)
     print('Cluster created successfully and ready to use. cluster id: %s'%cluster['solr_cluster_id'])
 
 def create_config(url, username, password,c_id,path,schema_file,corpus_file):
@@ -52,20 +53,21 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file):
     logger.info('corpus file successfully converted to json as: corpus.json')
 
     # add documents to collection
+    collection_name = "solr_collection"
     logger.info('Adding documents to collection...')
-    status = upload_corpus(url, username, password, c_id, os.path.join(path,'corpus.json'))
-    # logger.info(pretty_print_json(status))
-    if status.find('Error Code'):
+    status = upload_corpus(url, username, password, c_id, os.path.join(path,'corpus.json'),collection_name)
+    #logger.info(pretty_print_json(status))
+    if status.__contains__('Error Code'):
         logger.info('Error in uploading documents to collection')
         exit()
     logger.info('Documents added to the collection successfully')
 
 def create_ranker(url, username, password,c_id,path,truth):
-
+    """
     # upload test corpus
     upload_test_corpus(url, username, password, c_id)
     logger.info('Test corpus uploaded')
-
+    """
     # modify truth file to add relevance
     logger.info('Converting ground truth file for rnr....')
     create_truth(os.path.join(path,truth))
@@ -76,59 +78,8 @@ def create_ranker(url, username, password,c_id,path,truth):
     rnr = RetriveandRank(url=url, username=username, password=password)
     ranker = rnr.create_ranker(os.path.join(path,'rnr_truthincorpus.csv'),ranker_name)
     logger.info(ranker['status_description'])
-    wait((rnr.get_ranker_status(ranker['ranker_id'])['status'] == 'Available'), 300)
+    wait((rnr.get_ranker_status(ranker['ranker_id'])['status'] == 'Available'), 600)
     logger.info('Ranker is created successfully and trained with Ranker Id: %s'%ranker['ranker_id'])
-
-    # rank
-
-    # untrained query
-
-    # trained query
-
-# convert csv to json
-def convert_corpus_to_json(corpus):
-    df = pandas.read_csv(corpus)
-    df = df[['Answer Id', 'Answer']]
-    f = open('corpus_temp.json', 'w')
-    df.to_json(f, orient='records')
-
-    with open('corpus_temp.json', 'r') as f:
-        data = json.load(f)
-    a = []
-    for row in data:
-        temp = {"doc": row}
-        a.append(("add", temp))
-
-    out = '{%s' % ',\n'.join(['"{}": {}'.format(action, json.dumps(dictionary)) for action, dictionary in a])
-    out = out + '"commit" : { }}'
-
-    # can be commented as not required
-    with open('corpus.json', 'w') as f:
-        f.write(out)
-
-# upload documents to collection
-def upload_corpus(url, username, password,c_id,corpus):
-    cred = (username, password)
-    headers = {
-    'Content-Type': 'application/json',
-    }
-    data = open(corpus)
-    resp = requests.post(url+'/v1/solr_clusters/'+c_id+'/solr/example_collection/update', headers=headers, data=data, auth = cred)
-    return resp.text
-
-# upload test corpus
-def upload_test_corpus(url, username, password,c_id):
-    cred = (username, password)
-    resp = requests.get(url+'/v1/solr_clusters/'+c_id+'/solr/example_collection/select?q=*:*&fl=*&df=Answer', auth = cred)
-    return resp.text
-
-# modify truth file to add relevance
-def create_truth(truth):
-    df = pandas.read_csv(truth)
-    df = df[['Question', 'Answer Id']]
-    df['Question'] = df['Question'].str.replace(":", "")
-    df['Relevance'] = 4
-    df.to_csv('rnr_truthincorpus.csv', index = False, header = False)
 
 # query ranker
 def query_ranker(url, username, password,c_id, ranker_id, query):
@@ -198,6 +149,53 @@ def query_untrained_rnr(url, username, password,c_id, question):
         output_writer.writerow(['Question', 'Confidence', 'Answer'])
         for r in answers:
             output_writer.writerow((r))
+
+# convert csv to json
+def convert_corpus_to_json(corpus):
+    df = pandas.read_csv(corpus)
+    df = df[['Answer Id', 'Answer']]
+    f = open('corpus_temp.json', 'w')
+    df.to_json(f, orient='records')
+
+    with open('corpus_temp.json', 'r') as f:
+        data = json.load(f)
+    a = []
+    for row in data:
+        temp = {"doc": row}
+        a.append(("add", temp))
+
+    out = '{%s' % ',\n'.join(['"{}": {}'.format(action, json.dumps(dictionary)) for action, dictionary in a])
+    out = out + ',"commit" : { }}'
+
+    # can be commented as not required
+    with open('corpus.json', 'w') as f:
+        f.write(out)
+
+# upload documents to collection
+def upload_corpus(url, username, password,c_id,corpus,collection_name):
+    cred = (username, password)
+    headers = {
+    'Content-Type': 'application/json',
+    }
+    data = open(corpus)
+    resp = requests.post(url+'/v1/solr_clusters/'+c_id+'/solr/'+collection_name+'/update', headers=headers, data=data, auth = cred)
+    return resp.text
+
+# upload test corpus
+def upload_test_corpus(url, username, password,c_id,collection_name):
+    cred = (username, password)
+    resp = requests.get(url+'/v1/solr_clusters/'+c_id+'/solr/'+collection_name+'/select?q=*:*&fl=*&df=Answer', auth = cred)
+    return resp.text
+
+# modify truth file to add relevance
+def create_truth(truth):
+    df = pandas.read_csv(truth)
+    df = df[['Question', 'Answer Id']]
+    df['Question'] = df['Question'].str.replace(":", "")
+    df['Relevance'] = 4
+    df.to_csv('rnr_truthincorpus.csv', index = False, header = False)
+
+
 
 
 

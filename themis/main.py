@@ -485,7 +485,7 @@ def answer_command(subparsers):
     rnr_ranker = rnr_subparsers.add_parser("ranker", parents=[rnr_shared_arguments], help="PH")
     rnr_ranker.add_argument("c_id", help="cluster id")
     rnr_ranker.add_argument("path", help="local directory path")
-    rnr_ranker.add_argument("truth", type=CsvFileType(),help="ground truth file")
+    rnr_ranker.add_argument("truth",help="ground truth file")
     rnr_ranker.set_defaults(func=rnr_ranker_handler)
 
 
