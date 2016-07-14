@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy
 import pandas
+from matplotlib.font_manager import FontProperties
 
 from themis import (CONFIDENCE, CORRECT, FREQUENCY, IN_PURVIEW, QUESTION,
                     CsvFileType, logger)
 from themis.analyze import SYSTEM, drop_missing
-
-from matplotlib.font_manager import FontProperties
+from themis.metrics import (confidence_thresholds, precision,
+                            questions_attempted)
 
 THRESHOLD = "Threshold"
 TRUE_POSITIVE_RATE = "True Positive Rate"
@@ -93,37 +94,6 @@ def precision_curve(judgments):
     ts, precision_values, attempted_values = zip(*xs)  # zip(*x) is the inverse of zip(x)
     curve = pandas.DataFrame.from_dict({THRESHOLD: ts, PRECISION: precision_values, ATTEMPTED: attempted_values})
     return curve
-
-# TODO: Deprecated...use metrics.py
-
-
-def precision(judgments, t):
-    s = judgments[judgments[CONFIDENCE] >= t]
-    correct = sum(s[s[CORRECT]][FREQUENCY])
-    in_purview = sum(s[s[IN_PURVIEW]][FREQUENCY])
-    try:
-        return correct / float(in_purview)
-    except ZeroDivisionError:
-        logger.warning("No in-purview questions at threshold level %0.3f" % t)
-        return None
-
-# TODO: Deprecated...use metrics.py
-def questions_attempted(judgments, t):
-    s = judgments[judgments[CONFIDENCE] >= t]
-    in_purview_attempted = sum(s[s[IN_PURVIEW]][FREQUENCY])
-    total_in_purview = sum(judgments[judgments[IN_PURVIEW]][FREQUENCY])
-    try:
-        return in_purview_attempted / float(total_in_purview)
-    except ZeroDivisionError:
-        logger.warning("No in-purview questions attempted at threshold level %0.3f" % t)
-        return None
-
-# TODO: Deprecated...use metrics.py
-def confidence_thresholds(judgments, add_max):
-    ts = judgments[CONFIDENCE].sort_values(ascending=False).unique()
-    if add_max:
-        ts = numpy.insert(ts, 0, numpy.Infinity)
-    return ts
 
 
 def plot_curves(curves, curve_type):
