@@ -1,11 +1,12 @@
 import functools
 import itertools
+import json
 import math
 import os
 import os.path
 import tempfile
 import textwrap
-import json
+
 import numpy as np
 import pandas
 from bs4 import BeautifulSoup
@@ -14,15 +15,17 @@ from watson_developer_cloud import \
     NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
-                    IN_PURVIEW, QUESTION, CsvFileType, logger,
-                    percent_complete_message, pretty_print_json, to_csv)
+                    IN_PURVIEW, QUESTION, CsvFileType, ensure_directory_exists,
+                    logger, percent_complete_message, pretty_print_json,
+                    to_csv)
 from themis.checkpoint import DataFrameCheckpoint
 from themis.metrics import (__standardize_confidence, confidence_thresholds,
                             precision, questions_attempted)
-from themis.nlc import NLC,classifier_status
+from themis.nlc import NLC, classifier_status
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
+NLC_ROUTER_FOLDS = 8
 
 
 def corpus_statistics(corpus):
@@ -582,7 +585,7 @@ def drop_missing(systems_data):
     return systems_data
 
 
-def kfold_split(df, outdir, _folds = 5, _training_header=False):
+def kfold_split(df, outdir, _folds=5, _training_header=False):
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
@@ -612,47 +615,52 @@ def kfold_split(df, outdir, _folds = 5, _training_header=False):
 
 # k-folding and training
 def nlc_router_train(url, username, password, oracle_out, path, all_correct):
+    ensure_directory_exists(path)
+
     sys_name = oracle_out[SYSTEM][0]
     oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
-    kfold_split(oracle_out, path, 8, True)
+    kfold_split(oracle_out, path, NLC_ROUTER_FOLDS, True)
     classifier_list = []
     list = []
 
-    for x in range(0, 8):
-        train = pandas.read_csv(os.path.join(path, "Train" + str(x) + ".csv"))
+    for x in range(0, NLC_ROUTER_FOLDS):
+        train = pandas.read_csv(os.path.join(path, "Train{0}.csv".format(str(x))))
         if all_correct:
             logger.info("Training only on CORRECT examples.")
             # Ignore records from training which are not correct
-            train = train[train[CORRECT] == True]
-            train = train[train[IN_PURVIEW] == True]
-        train = train [[QUESTION,ANSWERING_SYSTEM]]
-        logger.info("Training set size = " + str(len(train)))
+            train = train[train[CORRECT]]
+            train = train[train[IN_PURVIEW]]
+        train = train[[QUESTION, ANSWERING_SYSTEM]]
+        logger.info("Training set size = {0}".format(str(len(train))))
         with tempfile.TemporaryFile() as training_file:
             to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
             training_file.seek(0)
             nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
-            classifier_id = nlc.create(training_data=training_file, name=str(sys_name) + '_fold_' + str(x))
+            classifier_id = nlc.create(training_data=training_file, name="{0}_fold_{1}".format(str(sys_name), str(x)))
             classifier_list.append(classifier_id["classifier_id"].encode("utf-8"))
-            list.append({classifier_id["name"].encode("utf-8") : classifier_id["classifier_id"].encode("utf-8")})
+            list.append({classifier_id["name"].encode("utf-8"): classifier_id["classifier_id"].encode("utf-8")})
             logger.info(pretty_print_json(classifier_id))
             pretty_print_json(classifier_id)
 
-    with open(os.path.join(path,'classifier.json'),'wb') as f:
-        json.dump(list,f)
+    with open(os.path.join(path, 'classifier.json'), 'wb') as f:
+        json.dump(list, f)
     return classifier_list
 
 # training status checking
 
-def nlc_router_status(url, username, password,path):
+
+def nlc_router_status(url, username, password, path):
     # import list of classifier from file
     classifier_list = []
     with open(os.path.join(path, 'classifier.json'), 'r') as f:
         data = json.load(f)
-    for x in range(0, 8):
-        classifier_list.append(data[x]['NLC+Solr Oracle_fold_' + str(x)].encode("utf-8"))
-    classifier_status(url, username, password,classifier_list)
+    for x in range(0, NLC_ROUTER_FOLDS):
+        classifier_list.append(data[x]['NLC+Solr Oracle_fold_{0}'.format(str(x))].encode("utf-8"))
+    classifier_status(url, username, password, classifier_list)
 
 # testing and merging
+
+
 def nlc_router_test(url, username, password, collate_file, path):
     def log_correct(system_data, name):
         n = len(system_data)
@@ -663,25 +671,24 @@ def nlc_router_test(url, username, password, collate_file, path):
     classifier_list = []
     with open(os.path.join(path, 'classifier.json'), 'r') as f:
         data = json.load(f)
-    for x in range(0, 8):
-        classifier_list.append(data[x]['NLC+Solr Oracle_fold_' + str(x)].encode("utf-8"))
+    for x in range(0, NLC_ROUTER_FOLDS):
+        classifier_list.append(data[x]['NLC+Solr Oracle_fold_{0}'.format(str(x))].encode("utf-8"))
 
-
-    for x in range(0, 8):
-        test = pandas.read_csv(os.path.join(path, "Test" + str(x) + ".csv"))
+    for x in range(0, NLC_ROUTER_FOLDS):
+        test = pandas.read_csv(os.path.join(path, "Test{0}.csv".format(str(x))))
         test = test[[QUESTION]]
         test[QUESTION] = test[QUESTION].str.replace("\n", " ")
         classifier_id = classifier_list[x]
         n = NLC(url, username, password, classifier_id, test)
-        out_file = os.path.join(path, "Out" + str(x) + ".csv")
-        logger.info("Testing on fold " + str(x) + " using NLC classifier " + str(classifier_list[x]))
+        out_file = os.path.join(path, "Out{0}.csv".format(str(x)))
+        logger.info("Testing on fold {0} using NLC classifier {1}".format(str(x), str(classifier_list[x])))
         answer_router_questions(n, set(test[QUESTION]), out_file)
 
     # Concatenate multiple trained output into single csv file
     dfList = []
     columns = [QUESTION, SYSTEM]
-    for x in range(0, 8):
-        df = pandas.read_csv(os.path.join(path, "Out" + str(x) + ".csv"), header=0)
+    for x in range(0, NLC_ROUTER_FOLDS):
+        df = pandas.read_csv(os.path.join(path, "Out{0}.csv".format(str(x))), header=0)
         dfList.append(df)
 
     concateDf = pandas.concat(dfList, axis=0)
