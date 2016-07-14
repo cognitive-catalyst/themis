@@ -469,24 +469,31 @@ def answer_command(subparsers):
                                            description="create clusters,collection,upload config.,add documents and manage RnR", help="RnR actions")
 
     # Create Cluster
-    rnr_cluster = rnr_subparsers.add_parser("create_cluster", parents=[rnr_shared_arguments], help="create Solr Cluster")
+    rnr_cluster = rnr_subparsers.add_parser("create_cluster", parents=[rnr_shared_arguments], help="Create Solr Cluster")
     rnr_cluster.add_argument("--cluster_name", help="cluster name")
     rnr_cluster.set_defaults(func=rnr_cluster_handler)
 
-    #create config
-
-    rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], help="PH")
+    # Create config,
+    rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], help="This command will perform following actions "
+                                                                                                 "1.Create Solr Configuration "
+                                                                                                "2.Create Solr Collection "
+                                                                                                 "3.Convert corpus file to rnr formated json "
+                                                                                                 "4.Add documents to Solr Collection ")
     rnr_config.add_argument("c_id", help="cluster id")
     rnr_config.add_argument("path", help="local directory path")
     rnr_config.add_argument("schema_file", help="schema file")
     rnr_config.add_argument("corpus_file", help="corpus file")
+    rnr_config.add_argument("--config_name", help="config name")
+    rnr_config.add_argument("--collection_name", help="collection name")
     rnr_config.set_defaults(func=rnr_config_handler)
 
-    #ranker
-    rnr_ranker = rnr_subparsers.add_parser("ranker", parents=[rnr_shared_arguments], help="PH")
-    rnr_ranker.add_argument("c_id", help="cluster id")
+    # create and train ranker
+    rnr_ranker = rnr_subparsers.add_parser("ranker", parents=[rnr_shared_arguments], help="This command will perform following actions "
+                                                                                                 "1.Convert truth file to Rnr required format"
+                                                                                                "2.Create and train ranker  ")
     rnr_ranker.add_argument("path", help="local directory path")
     rnr_ranker.add_argument("truth",help="ground truth file")
+    rnr_ranker.add_argument("--ranker_name", help="ranker name")
     rnr_ranker.set_defaults(func=rnr_ranker_handler)
 
 
@@ -495,6 +502,7 @@ def answer_command(subparsers):
     rnr_ranker_query.add_argument("c_id", help="cluster id")
     rnr_ranker_query.add_argument("ranker", help= "ranker id")
     rnr_ranker_query.add_argument("question_file", help= "question to solr")
+    rnr_ranker_query.add_argument("--collection_name", help="collection name")
     rnr_ranker_query.set_defaults(func=rnr_ranker_query_handler)
 
     # query sample questions for trained RnR
@@ -508,6 +516,7 @@ def answer_command(subparsers):
     rnr_untrained_sample_questions_query = rnr_subparsers.add_parser("untrained_ranker_query", parents = [rnr_shared_arguments], help= " query the ranker ")
     rnr_untrained_sample_questions_query.add_argument("c_id", help="cluster id")
     rnr_untrained_sample_questions_query.add_argument("query_file", help= "sample questions file to query solr")
+    rnr_untrained_sample_questions_query.add_argument("--collection_name", help="collection name")
     rnr_untrained_sample_questions_query.set_defaults(func=rnr_query_untrained_rnr_handler)
 
 
@@ -527,19 +536,19 @@ def rnr_cluster_handler(args):
     create_cluster(args.url, args.username, args.password,args.cluster_name)
 
 def rnr_config_handler(args):
-    print(create_config(args.url, args.username, args.password,args.c_id,args.path,args.schema_file,args.corpus_file))
+    print(create_config(args.url, args.username, args.password,args.c_id,args.path,args.schema_file,args.corpus_file,args.config_name,args.collection_name))
 
 def rnr_ranker_handler(args):
-    print(create_ranker(args.url, args.username, args.password,args.c_id,args.path,args.truth))
+    print(create_ranker(args.url, args.username, args.password,args.path,args.truth,args.ranker_name))
 
 def rnr_ranker_query_handler(args):
-    print(query_ranker(args.url, args.username, args.password, args.c_id, args.ranker, args.question_file))
+    print(query_ranker(args.url, args.username, args.password, args.c_id, args.ranker, args.question_file,args.collection_name))
 
 def rnr_query_trained_rnr_handler(args):
     print(query_trained_rnr(args.url, args.username, args.password, args.c_id, args.ranker, args.query_file))
 
 def rnr_query_untrained_rnr_handler(args):
-    print(query_untrained_rnr(args.url, args.username, args.password, args.c_id, args.query_file))
+    print(query_untrained_rnr(args.url, args.username, args.password, args.c_id, args.query_file,args.collection_name))
 def nlc_use_handler(args):
     corpus = args.corpus.set_index(ANSWER_ID)
     n = NLC(args.url, args.username, args.password, args.classifier, corpus)

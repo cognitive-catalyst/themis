@@ -6,36 +6,37 @@ import csv
 import pandas
 import requests, os
 
-def wait(condition, timeout, period=10):
-  end = time.time() + timeout
-  try:
-    while time.time() < end:
-        if condition():
-            return True
-        time.sleep(period)
-  except:
-      return False
-  return False
-
 def create_cluster(url, username, password,cluster_name):
     if not cluster_name:
         cluster_name = "solr_cluster"
     rnr = RetriveandRank(url=url, username=username, password=password)
     cluster = rnr.create_solr_cluster(cluster_name=cluster_name)
-    print('Cluster creation starting....')
-    print cluster
+    logger.info('Cluster creation starting....')
+    # waiting for cluster to be ready
+    end = time.time() + 600
+    try:
+        while time.time() < end:
+            if(cluster_status(url,username,password,cluster) == 'READY'):
+                logger.info('Cluster created successfully and ready to use. Cluster Id: %s' % cluster['solr_cluster_id'])
+                break
+            time.sleep(10)
+    except:
+        logger.info('Error in cluster creation')
 
-    wait(rnr.get_solr_cluster_status(cluster['solr_cluster_id'])['solr_cluster_status'] == 'READY',600)
-    print('Cluster created successfully and ready to use. cluster id: %s'%cluster['solr_cluster_id'])
+def cluster_status(url,username,password,cluster):
+    rnr = RetriveandRank(url=url, username=username, password=password)
+    return rnr.get_solr_cluster_status(cluster['solr_cluster_id'])['solr_cluster_status']
 
-def create_config(url, username, password,c_id,path,schema_file,corpus_file):
+
+def create_config(url, username, password,c_id,path,schema_file,corpus_file,config_name,collection_name):
 
     # create config
-    config_name = "solr_configuration"
+    if not config_name:
+        config_name = "solr_configuration"
     try:
         zip_file = open(os.path.join(path,schema_file),'rb')
     except:
-        print("Error opening zip file from:  %s" % os.path.join(path,schema_file))
+        logger.info("Error opening zip file from:  %s" % os.path.join(path,schema_file))
         exit()
 
     rnr = RetriveandRank(url=url, username=username, password=password)
@@ -43,7 +44,8 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file):
     logger.info(pretty_print_json(config['message']))
 
     # create collection
-    collection_name = "solr_collection"
+    if not collection_name:
+        collection_name = "solr_collection"
     collection = rnr.create_collection(c_id,collection_name,config_name)
     if collection['success']:
         logger.info('Collection successfully created with name: %s'%collection_name)
@@ -63,7 +65,7 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file):
         exit()
     logger.info('Documents added to the collection successfully')
 
-def create_ranker(url, username, password,c_id,path,truth):
+def create_ranker(url, username, password,path,truth,ranker_name):
     """
     # upload test corpus
     upload_test_corpus(url, username, password, c_id)
@@ -75,24 +77,42 @@ def create_ranker(url, username, password,c_id,path,truth):
     logger.info('Conversion completed')
 
     # ranker
-    ranker_name = "rnr_ranker"
+    if not ranker_name:
+        ranker_name = "rnr_ranker"
     rnr = RetriveandRank(url=url, username=username, password=password)
     ranker = rnr.create_ranker(os.path.join(path,'rnr_truthincorpus.csv'),ranker_name)
+    logger.info('Ranker instance is created successfully')
     logger.info(ranker['status_description'])
-    wait((rnr.get_ranker_status(ranker['ranker_id'])['status'] == 'Available'), 600)
-    logger.info('Ranker is created successfully and trained with Ranker Id: %s'%ranker['ranker_id'])
+    logger.info(pretty_print_json(ranker))
+    # waiting for ranker to be ready
+    end = time.time() + 900
+    try:
+        while time.time() < end:
+            if(ranker_status(url,username,password,ranker) == 'Available'):
+                logger.info('Ranker is created successfully and trained with Ranker Id: %s'%ranker['ranker_id'])
+                break
+            time.sleep(10)
+    except:
+        logger.info('Error in ranker creation')
 
-# query ranker
-def query_ranker(url, username, password,c_id, ranker_id, query):
+# Ranker status
+def ranker_status(url, username, password, ranker):
+    rnr = RetriveandRank(url=url, username=username, password=password)
+    return rnr.get_ranker_status(ranker['ranker_id'])['status']
+
+# query ranker change
+def query_ranker(url, username, password,c_id, ranker_id, query,collection_name):
+    if not collection_name:
+        collection_name = "solr_collection"
     print query
     cred = (username, password)
-    resp = requests.get(url+'/v1/solr_clusters/'+c_id+'/solr/example_collection/fcselect?ranker_id='+ranker_id+'&q='+query+'&wt=json', auth=cred)
+    resp = requests.get(url+'/v1/solr_clusters/'+c_id+'/solr/'+collection_name+'/fcselect?ranker_id='+ranker_id+'&q='+query+'&wt=json', auth=cred)
     return resp.text
 
-# query untrained ranker
-def query_untrained_ranker(url, username, password,c_id, query):
+# query untrained ranker change
+def query_untrained_ranker(url, username, password,c_id, query,collection_name):
     cred = (username, password)
-    resp = requests.get(url+'v1/solr_clusters/'+c_id+'/solr/example_collection/fcselect?q='+query+'&wt=json', auth=cred)
+    resp = requests.get(url+'/v1/solr_clusters/'+c_id+'/solr/'+collection_name+'/fcselect?q='+query+'&wt=json', auth=cred)
     return resp.text
 
 # query trained rnr
@@ -124,7 +144,9 @@ def query_trained_rnr(url, username, password,c_id, ranker_id, question):
             output_writer.writerow((r))
 
 # query untrained rnr
-def query_untrained_rnr(url, username, password,c_id, question):
+def query_untrained_rnr(url, username, password,c_id, question,collection_name):
+    if not collection_name:
+        collection_name = "solr_collection"
     answers = []
     with open(question, 'r') as f:
         input_reader = csv.DictReader( f, delimiter=',' )
@@ -132,7 +154,7 @@ def query_untrained_rnr(url, username, password,c_id, question):
     print "number of sample questions: " ,len(rows)
     for row in rows:
         query = row['Question'].replace("#", "")
-        resp = query_untrained_ranker(url, username, password,c_id, query)
+        resp = query_untrained_ranker(url, username, password,c_id, query,collection_name)
         try:
             res = json.loads(resp)
         except:
