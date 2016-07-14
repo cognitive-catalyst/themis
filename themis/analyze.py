@@ -1,24 +1,31 @@
 import functools
 import itertools
+import json
 import math
 import os
 import os.path
+import tempfile
 import textwrap
 
 import numpy as np
 import pandas
 from bs4 import BeautifulSoup
 from nltk import FreqDist, word_tokenize
+from watson_developer_cloud import \
+    NaturalLanguageClassifierV1 as NaturalLanguageClassifier
 
-from metrics import precision
 from themis import (ANSWER, ANSWER_ID, CONFIDENCE, CORRECT, FREQUENCY,
-                    IN_PURVIEW, QUESTION, CsvFileType, logger, to_csv)
+                    IN_PURVIEW, QUESTION, CsvFileType, ensure_directory_exists,
+                    logger, percent_complete_message, pretty_print_json,
+                    to_csv)
+from themis.checkpoint import DataFrameCheckpoint
 from themis.metrics import (__standardize_confidence, confidence_thresholds,
-                            precision, precision_grounded_confidence,
-                            questions_attempted)
+                            precision, questions_attempted)
+from themis.nlc import NLC, classifier_status
 
 SYSTEM = "System"
 ANSWERING_SYSTEM = "Answering System"
+NLC_ROUTER_FOLDS = 8
 
 
 def corpus_statistics(corpus):
@@ -580,8 +587,18 @@ def drop_missing(systems_data):
                            (m, n, 100.0 * m / n))
     return systems_data
 
-
 def kfold_split(df, outdir, _folds=5, _training_header=False):
+    """
+    
+    Split the data-set into equal training and testing sets. Put training and testing set into local directory
+    as csv files.
+
+    :param df: data frame to be splited
+    :param outdir: output directory path
+    :param _folds: number of folds to be performed
+    :param _training_header: header og the training file
+    :return: list of directory for training set and teting set
+    """
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
@@ -594,17 +611,174 @@ def kfold_split(df, outdir, _folds=5, _training_header=False):
         fold_low = x * foldSize
         fold_high = (x + 1) * foldSize
 
-    if fold_high >= len(df):
-        fold_high = len(df)
+        if fold_high >= len(df):
+            fold_high = len(df)
 
-    test_df = df.iloc[fold_low:fold_high]
-    train_df = df.drop(df.index[fold_low:fold_high])
+        test_df = df.iloc[fold_low:fold_high]
+        train_df = df.drop(df.index[fold_low:fold_high])
 
-    test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
-    train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
+        test_df.to_csv(os.path.join(outdir, 'Test' + str(x) + '.csv'), encoding='utf-8', index=False)
+        train_df.to_csv(os.path.join(outdir, 'Train' + str(x) + '.csv'), header=_training_header, encoding='utf-8', index=False)
 
-    logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
-    logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
+        logger.info("--- Train_Fold_" + str(x) + ' size = ' + str(len(train_df)))
+        logger.info("--- Test_Fold_" + str(x) + ' size = ' + str(len(test_df)))
+
+# NLC as router functions
+
+
+# k-folding and training
+def nlc_router_train(url, username, password, oracle_out, path, all_correct):
+
+    """
+    NLC Training on the oracle experiment output to determine which system(NLC or Solr) should
+    answer particular question.
+
+    1. Splitting up the oracle experiment output data into 8 equal training records and testing records. This is to
+    ensure 8-fold cross validation of the data-set. All training and Testing files will be stored
+    at the "path"
+
+     2. Perform NLC training on the all 8 training set simultaneously and returns list of classifier
+     ids as json file in the working directory
+
+    :param url: URL of NLC instance
+    :param username: NLC Username
+    :param password: NLC password
+    :param oracle_out: file created by oracle experiment
+    :param path: directory path to save intermediate results
+    :param all_correct: optional boolean parameter to train with only correct QA pairs
+    :return: list of classifier ids by NLC training
+    """
+    ensure_directory_exists(path)
+
+    sys_name = oracle_out[SYSTEM][0]
+    oracle_out[QUESTION] = oracle_out[QUESTION].str.replace("\n", " ")
+    kfold_split(oracle_out, path, NLC_ROUTER_FOLDS, True)
+    classifier_list = []
+    list = []
+
+    for x in range(0, NLC_ROUTER_FOLDS):
+        train = pandas.read_csv(os.path.join(path, "Train{0}.csv".format(str(x))))
+        if all_correct:
+            logger.info("Training only on CORRECT examples.")
+            # Ignore records from training which are not correct
+            train = train[train[CORRECT]]
+            train = train[train[IN_PURVIEW]]
+        train = train[[QUESTION, ANSWERING_SYSTEM]]
+        logger.info("Training set size = {0}".format(str(len(train))))
+        with tempfile.TemporaryFile() as training_file:
+            to_csv(training_file, train[[QUESTION, ANSWERING_SYSTEM]], header=False, index=False)
+            training_file.seek(0)
+            nlc = NaturalLanguageClassifier(url=url, username=username, password=password)
+            classifier_id = nlc.create(training_data=training_file, name="{0}_fold_{1}".format(str(sys_name), str(x)))
+            classifier_list.append(classifier_id["classifier_id"].encode("utf-8"))
+            list.append({classifier_id["name"].encode("utf-8"): classifier_id["classifier_id"].encode("utf-8")})
+            logger.info(pretty_print_json(classifier_id))
+            pretty_print_json(classifier_id)
+
+    with open(os.path.join(path, 'classifier.json'), 'wb') as f:
+        json.dump(list, f)
+    return classifier_list
+
+# training status checking
+def nlc_router_status(url, username, password, path):
+    """
+    Determine the status of NLC training instance and returns whether the instance is finished training or not.
+
+    :param url: URL of NLC instance
+    :param username: NLC Username
+    :param password: NLC password
+    :param path: directory path to save intermediate results
+    :return: status of instance on stdout
+    """
+    # import list of classifier from file
+    classifier_list = []
+    with open(os.path.join(path, 'classifier.json'), 'r') as f:
+        data = json.load(f)
+    for x in range(0, NLC_ROUTER_FOLDS):
+        classifier_list.append(data[x]['NLC+Solr Oracle_fold_{0}'.format(str(x))].encode("utf-8"))
+    classifier_status(url, username, password, classifier_list)
+
+# testing and merging
+def nlc_router_test(url, username, password, collate_file, path):
+    """
+    Querying NLC for testing set to determine the system(NLC or Solr) and then lookup related
+    fields from collated file (used as an input to the oracle experiment)
+
+    :param url: URL of NLC instance
+    :param username: NLC Username
+    :param password: NLC password
+    :param oracle_out: file created by oracle experiment
+    :param collate_file: collated file created for oracle experiment as input
+    :param path: directory path to save intermediate results
+
+    :return: output file with best system NLC or Solr and relevant fields
+    """
+    def log_correct(system_data, name):
+        n = len(system_data)
+        m = sum(system_data[CORRECT])
+        logger.info("%d of %d correct in %s (%0.3f%%)" % (m, n, name, 100.0 * m / n))
+
+    # import list of classifier from file
+    classifier_list = []
+    with open(os.path.join(path, 'classifier.json'), 'r') as f:
+        data = json.load(f)
+    for x in range(0, NLC_ROUTER_FOLDS):
+        classifier_list.append(data[x]['NLC+Solr Oracle_fold_{0}'.format(str(x))].encode("utf-8"))
+
+    for x in range(0, NLC_ROUTER_FOLDS):
+        test = pandas.read_csv(os.path.join(path, "Test{0}.csv".format(str(x))))
+        test = test[[QUESTION]]
+        test[QUESTION] = test[QUESTION].str.replace("\n", " ")
+        classifier_id = classifier_list[x]
+        n = NLC(url, username, password, classifier_id, test)
+        out_file = os.path.join(path, "Out{0}.csv".format(str(x)))
+        logger.info("Testing on fold {0} using NLC classifier {1}".format(str(x), str(classifier_list[x])))
+        answer_router_questions(n, set(test[QUESTION]), out_file)
+
+    # Concatenate multiple trained output into single csv file
+    dfList = []
+    columns = [QUESTION, SYSTEM]
+    for x in range(0, NLC_ROUTER_FOLDS):
+        df = pandas.read_csv(os.path.join(path, "Out{0}.csv".format(str(x))), header=0)
+        dfList.append(df)
+
+    concateDf = pandas.concat(dfList, axis=0)
+    concateDf.columns = columns
+    concateDf.to_csv(os.path.join(path, "Interim-Result.csv"), encoding='utf-8', index=None)
+
+    # Join operation to get fields from oracle collated file
+    result = pandas.merge(concateDf, collate_file, on=[QUESTION, SYSTEM])
+    result = result.rename(columns={SYSTEM: ANSWERING_SYSTEM})
+    result[SYSTEM] = 'NLC-as-router'
+    result[CONFIDENCE] = __standardize_confidence(result)
+    log_correct(result, 'NLC-as-router')
+    return result
+
+
+def answer_router_questions(system, questions, output):
+
+    """
+    Get Answer from given system to the question asked and store it in the output file
+    :param system: System NLC or Solr
+    :param questions: Question set
+    :param output: Output file
+    :return:
+    """
+    logger.info("Get answers to %d questions from %s" % (len(questions), system))
+    answers = DataFrameCheckpoint(output, [QUESTION, ANSWERING_SYSTEM])
+    try:
+        if answers.recovered:
+            logger.info("Recovered %d answers from %s" % (len(answers.recovered), output))
+        questions = sorted(questions - answers.recovered)
+        n = len(answers.recovered) + len(questions)
+        for i, question in enumerate(questions, len(answers.recovered) + 1):
+            if i is 1 or i == n or i % 25 == 0:
+                logger.info(percent_complete_message("Question", i, n))
+            answer = system.query(question.replace("\n", " "))
+            #logger.debug("%s\t%s" % (question, answer))
+            answers.write(question, answer)
+    finally:
+        answers.close()
 
 
 class CollatedFileType(CsvFileType):

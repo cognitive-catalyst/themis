@@ -6,6 +6,8 @@ from themis import (CONFIDENCE, CORRECT, FREQUENCY, IN_PURVIEW, QUESTION,
                     CsvFileType, logger)
 from themis.analyze import SYSTEM, drop_missing
 
+from matplotlib.font_manager import FontProperties
+
 THRESHOLD = "Threshold"
 TRUE_POSITIVE_RATE = "True Positive Rate"
 FALSE_POSITIVE_RATE = "False Positive Rate"
@@ -129,7 +131,9 @@ def plot_curves(curves, curve_type):
     y_label = curves.values()[0].columns[1]
     for label, curve in curves.items():
         plt.plot(curve[x_label], curve[y_label], label=label)
-    plt.legend(loc={"precision": 3, "roc": 1}[curve_type])
+    fontP = FontProperties()
+    fontP.set_size('smaller')
+    plt.legend(loc={"precision": 3, "roc": 1}[curve_type], prop=fontP)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.show()
