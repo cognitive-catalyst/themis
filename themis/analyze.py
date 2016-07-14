@@ -584,8 +584,18 @@ def drop_missing(systems_data):
                            (m, n, 100.0 * m / n))
     return systems_data
 
-
 def kfold_split(df, outdir, _folds=5, _training_header=False):
+    """
+    
+    Split the data-set into equal training and testing sets. Put training and testing set into local directory
+    as csv files.
+
+    :param df: data frame to be splited
+    :param outdir: output directory path
+    :param _folds: number of folds to be performed
+    :param _training_header: header og the training file
+    :return: list of directory for training set and teting set
+    """
     # Randomize the order of the input dataframe
     df = df.iloc[np.random.permutation(len(df))]
     df = df.reset_index(drop=True)
@@ -615,6 +625,26 @@ def kfold_split(df, outdir, _folds=5, _training_header=False):
 
 # k-folding and training
 def nlc_router_train(url, username, password, oracle_out, path, all_correct):
+
+    """
+    NLC Training on the oracle experiment output to determine which system(NLC or Solr) should
+    answer particular question.
+
+    1. Splitting up the oracle experiment output data into 8 equal training records and testing records. This is to
+    ensure 8-fold cross validation of the data-set. All training and Testing files will be stored
+    at the "path"
+
+     2. Perform NLC training on the all 8 training set simultaneously and returns list of classifier
+     ids as json file in the working directory
+
+    :param url: URL of NLC instance
+    :param username: NLC Username
+    :param password: NLC password
+    :param oracle_out: file created by oracle experiment
+    :param path: directory path to save intermediate results
+    :param all_correct: optional boolean parameter to train with only correct QA pairs
+    :return: list of classifier ids by NLC training
+    """
     ensure_directory_exists(path)
 
     sys_name = oracle_out[SYSTEM][0]
@@ -647,9 +677,16 @@ def nlc_router_train(url, username, password, oracle_out, path, all_correct):
     return classifier_list
 
 # training status checking
-
-
 def nlc_router_status(url, username, password, path):
+    """
+    Determine the status of NLC training instance and returns whether the instance is finished training or not.
+
+    :param url: URL of NLC instance
+    :param username: NLC Username
+    :param password: NLC password
+    :param path: directory path to save intermediate results
+    :return: status of instance on stdout
+    """
     # import list of classifier from file
     classifier_list = []
     with open(os.path.join(path, 'classifier.json'), 'r') as f:
@@ -659,9 +696,20 @@ def nlc_router_status(url, username, password, path):
     classifier_status(url, username, password, classifier_list)
 
 # testing and merging
-
-
 def nlc_router_test(url, username, password, collate_file, path):
+    """
+    Querying NLC for testing set to determine the system(NLC or Solr) and then lookup related
+    fields from collated file (used as an input to the oracle experiment)
+
+    :param url: URL of NLC instance
+    :param username: NLC Username
+    :param password: NLC password
+    :param oracle_out: file created by oracle experiment
+    :param collate_file: collated file created for oracle experiment as input
+    :param path: directory path to save intermediate results
+
+    :return: output file with best system NLC or Solr and relevant fields
+    """
     def log_correct(system_data, name):
         n = len(system_data)
         m = sum(system_data[CORRECT])
@@ -705,6 +753,14 @@ def nlc_router_test(url, username, password, collate_file, path):
 
 
 def answer_router_questions(system, questions, output):
+
+    """
+    Get Answer from given system to the question asked and store it in the output file
+    :param system: System NLC or Solr
+    :param questions: Question set
+    :param output: Output file
+    :return:
+    """
     logger.info("Get answers to %d questions from %s" % (len(questions), system))
     answers = DataFrameCheckpoint(output, [QUESTION, ANSWERING_SYSTEM])
     try:
