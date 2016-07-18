@@ -74,7 +74,7 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
 
     if not collection_name:
         collection_name = "solr_collection"
-
+    """
     # modify truth file to add relevance
     logger.info('Adding relevance to ground truth....')
     create_truth(os.path.join(path,truth),path)
@@ -84,7 +84,7 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
     logger.info('Converting file....')
     ranker_training_file(url, username, password, c_id, collection_name, os.path.join(path,'rnr_relevance.csv'),path)
     logger.info('Conversion completed successfully. New file generated : training.txt')
-
+    """
 
     # ranker creation and training
     '''
@@ -96,16 +96,7 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
     logger.info(ranker['status_description'])
     logger.info(pretty_print_json(ranker))
 
-    # waiting for ranker to be ready
-    end = time.time() + 900
-    try:
-        while time.time() < end:
-            if(ranker_status(url,username,password,ranker) == 'Available'):
-                logger.info('Ranker is created successfully and trained with Ranker Id: %s'%ranker['ranker_id'])
-                break
-            time.sleep(10)
-    except:
-        logger.info('Error in ranker creation')
+
     '''
 
     # Train the ranker with the training data that was generate above from the query/relevance input
@@ -119,12 +110,23 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
 
     process = subprocess.Popen(shlex.split(ranker_curl_cmd), stdout=subprocess.PIPE)
     response = process.communicate()[0]
-    print response
+    #print response[14:34]
+
+    # waiting for ranker to be ready
+    end = time.time() + 900
+    try:
+        while time.time() < end:
+            if (ranker_status(url, username, password, response) == 'Available'):
+                logger.info('Ranker is created successfully and trained with Ranker Id: %s' % response[14:34])
+                break
+            time.sleep(10)
+    except:
+        logger.info('Error in ranker creation')
 
 # Ranker status
 def ranker_status(url, username, password, ranker):
     rnr = RetriveandRank(url=url, username=username, password=password)
-    return rnr.get_ranker_status(ranker['ranker_id'])['status']
+    return rnr.get_ranker_status(ranker[14:34])['status']
 
 # modify truth file to add relevance
 def create_truth(truth,path):
