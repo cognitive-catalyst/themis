@@ -493,11 +493,11 @@ def answer_command(subparsers):
     rnr_cluster.set_defaults(func=rnr_cluster_handler)
 
     # Create config,
-    rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], help="This command will perform following actions "
+    rnr_config = rnr_subparsers.add_parser("create_config", parents=[rnr_shared_arguments], description = textwrap.dedent("This command will perform following actions "
                                                                                                  "1.Create Solr Configuration "
                                                                                                 "2.Create Solr Collection "
                                                                                                  "3.Convert corpus file to rnr formated json "
-                                                                                                 "4.Add documents to Solr Collection ")
+                                                                                                 "4.Add documents to Solr Collection "), help='Create config,collection and add document to colection')
     rnr_config.add_argument("c_id", help="cluster id")
     rnr_config.add_argument("path", help="local directory path")
     rnr_config.add_argument("schema_file", help="schema file")
@@ -507,9 +507,9 @@ def answer_command(subparsers):
     rnr_config.set_defaults(func=rnr_config_handler)
 
     # create and train ranker
-    rnr_ranker = rnr_subparsers.add_parser("ranker", parents=[rnr_shared_arguments], help="This command will perform following actions "
+    rnr_ranker = rnr_subparsers.add_parser("create_ranker", parents=[rnr_shared_arguments],description = textwrap.dedent("This command will perform following actions "
                                                                                                  "1.Convert truth file to Rnr required format"
-                                                                                                "2.Create and train ranker  ")
+                                                                                                "2.Create and train ranker  "), help= 'Convert truth file, create and train ranker')
     rnr_ranker.add_argument("c_id", help="cluster id")
     rnr_ranker.add_argument("path", help="local directory path")
     rnr_ranker.add_argument("truth",help="ground truth file")
