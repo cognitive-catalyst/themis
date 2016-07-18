@@ -74,7 +74,7 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
 
     if not collection_name:
         collection_name = "solr_collection"
-    """
+
     # modify truth file to add relevance
     logger.info('Adding relevance to ground truth....')
     create_truth(os.path.join(path,truth),path)
@@ -84,7 +84,7 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
     logger.info('Converting file....')
     ranker_training_file(url, username, password, c_id, collection_name, os.path.join(path,'rnr_relevance.csv'),path)
     logger.info('Conversion completed successfully. New file generated : training.txt')
-    """
+
 
     # ranker creation and training
     '''
