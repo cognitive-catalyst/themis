@@ -5,6 +5,9 @@ import json
 import csv
 import pandas
 import requests, os
+import subprocess
+import shlex
+import urllib
 
 def create_cluster(url, username, password,cluster_name):
     if not cluster_name:
@@ -65,25 +68,32 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file,conf
         exit()
     logger.info('Documents added to the collection successfully')
 
-def create_ranker(url, username, password,path,truth,ranker_name):
-    """
-    # upload test corpus
-    upload_test_corpus(url, username, password, c_id)
-    logger.info('Test corpus uploaded')
-    """
+
+
+def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection_name):
+
+    if not collection_name:
+        collection_name = "solr_collection"
     # modify truth file to add relevance
-    logger.info('Converting ground truth file for rnr....')
-    create_truth(os.path.join(path,truth))
-    logger.info('Conversion completed')
+    logger.info('Adding relevance to ground truth file....')
+    create_truth(os.path.join(path,truth),path)
+    logger.info('New file generated with relevance: rnr_relevance.csv')
+
+    # convert relevance file into rnr format file
+    logger.info('Converting file....')
+    ranker_training_file(url, username, password, c_id, collection_name, os.path.join(path,'rnr_relevance.csv'),path)
+    logger.info('Conversion completed successfully. New file generated : training.txt')
+
 
     # ranker
     if not ranker_name:
         ranker_name = "rnr_ranker"
     rnr = RetriveandRank(url=url, username=username, password=password)
-    ranker = rnr.create_ranker(os.path.join(path,'rnr_truthincorpus.csv'),ranker_name)
+    ranker = rnr.create_ranker(os.path.join(path,'training.txt'),ranker_name)
     logger.info('Ranker instance is created successfully')
     logger.info(ranker['status_description'])
     logger.info(pretty_print_json(ranker))
+
     # waiting for ranker to be ready
     end = time.time() + 900
     try:
@@ -95,10 +105,65 @@ def create_ranker(url, username, password,path,truth,ranker_name):
     except:
         logger.info('Error in ranker creation')
 
+    # Train the ranker with the training data that was generate above from the query/relevance input
+
+    cred = username + ":" + password
+    ranker_name = "rnr_ranker"
+
+    ranker_curl_cmd = 'curl -k -X POST -u %s -F training_data=@%s -F training_metadata="{\\"name\\":\\"%s\\"}" %s' % (
+     cred, os.path.join(path,'training.txt'), ranker_name, url+'/v1/rankers')
+
+    process = subprocess.Popen(shlex.split(ranker_curl_cmd), stdout=subprocess.PIPE)
+    response = process.communicate()[0]
+    print response
+
 # Ranker status
 def ranker_status(url, username, password, ranker):
     rnr = RetriveandRank(url=url, username=username, password=password)
     return rnr.get_ranker_status(ranker['ranker_id'])['status']
+
+# modify truth file to add relevance
+def create_truth(truth,path):
+    df = pandas.read_csv(truth)
+    df = df[['Question', 'Answer Id']]
+    df['Question'] = df['Question'].str.replace(":", "")
+    df['Relevance'] = 4
+    df.to_csv(os.path.join(path,'rnr_relevance.csv'), index = False, header = False)
+
+# convert truth file in rnr format from relevance file
+def ranker_training_file(url,username,password,c_id,collection_name,relevance_file,path):
+    url = 'https://gateway.watsonplatform.net/retrieve-and-rank/api/v1/'+'solr_clusters/'+c_id+'/solr/'+collection_name+'/fcselect/'
+    number_row = '10'
+    cred = username+":"+password
+    with open(relevance_file, 'rb') as csvfile:
+        add_header = 'true'
+        question_relevance = csv.reader(csvfile)
+        with open(os.path.join(path,'training.txt'), "a") as training_file:
+            print ('Generating training data...')
+            for row in question_relevance:
+                question = urllib.quote(row[0])
+                relevance = ','.join(row[1:])
+                curl_cmd = 'curl -k -s %s -u %s -d "q=%s&gt=%s&generateHeader=%s&rows=%s&returnRSInput=true&wt=json" "%s"' % (
+                '-v', cred, question, relevance, add_header, number_row, url)
+
+                process = subprocess.Popen(shlex.split(curl_cmd),stdout=subprocess.PIPE)
+                output = process.communicate()[0]
+
+                try:
+                    parsed_json = json.loads(output)
+                    if 'RSInput' in parsed_json:
+                        training_file.write(parsed_json['RSInput'])
+                    else:
+                        continue
+                except:
+                    print ('Command:')
+                    print (curl_cmd)
+                    print ('Response:')
+                    print (output)
+                    print (question)
+                    raise
+                add_header = 'false'
+    print ('Generating training data complete.')
 
 # query ranker change
 def query_ranker(url, username, password,c_id, ranker_id, query,collection_name):
@@ -210,13 +275,7 @@ def upload_test_corpus(url, username, password,c_id,collection_name):
     resp = requests.get(url+'/v1/solr_clusters/'+c_id+'/solr/'+collection_name+'/select?q=*:*&fl=*&df=Answer', auth = cred)
     return resp.text
 
-# modify truth file to add relevance
-def create_truth(truth):
-    df = pandas.read_csv(truth)
-    df = df[['Question', 'Answer Id']]
-    df['Question'] = df['Question'].str.replace(":", "")
-    df['Relevance'] = 4
-    df.to_csv('rnr_truthincorpus.csv', index = False, header = False)
+
 
 
 

@@ -491,9 +491,11 @@ def answer_command(subparsers):
     rnr_ranker = rnr_subparsers.add_parser("ranker", parents=[rnr_shared_arguments], help="This command will perform following actions "
                                                                                                  "1.Convert truth file to Rnr required format"
                                                                                                 "2.Create and train ranker  ")
+    rnr_ranker.add_argument("c_id", help="cluster id")
     rnr_ranker.add_argument("path", help="local directory path")
     rnr_ranker.add_argument("truth",help="ground truth file")
     rnr_ranker.add_argument("--ranker_name", help="ranker name")
+    rnr_ranker.add_argument("--collection_name", help="collection name")
     rnr_ranker.set_defaults(func=rnr_ranker_handler)
 
 
@@ -539,7 +541,7 @@ def rnr_config_handler(args):
     print(create_config(args.url, args.username, args.password,args.c_id,args.path,args.schema_file,args.corpus_file,args.config_name,args.collection_name))
 
 def rnr_ranker_handler(args):
-    print(create_ranker(args.url, args.username, args.password,args.path,args.truth,args.ranker_name))
+    print(create_ranker(args.url, args.username, args.password,args.c_id,args.path,args.truth,args.ranker_name,args.collection_name))
 
 def rnr_ranker_query_handler(args):
     print(query_ranker(args.url, args.username, args.password, args.c_id, args.ranker, args.question_file,args.collection_name))
