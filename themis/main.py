@@ -553,7 +553,7 @@ def solr_handler(args):
 def nlc_train_handler(args):
     print(train_nlc(args.url, args.username, args.password, args.truth, args.name))
 
-<<<<<<< HEAD
+
 def rnr_cluster_handler(args):
     create_cluster(args.url, args.username, args.password,args.cluster_name)
 
@@ -568,7 +568,7 @@ def rnr_ranker_query_handler(args):
 
 def rnr_query_trained_rnr_handler(args):
     print(query_trained_rnr(args.url, args.username, args.password, args.c_id, args.ranker, args.query_file))
-=======
+
 def nlc_router_train_handler(args):
     print(nlc_router_train(args.url, args.username, args.password, args.oracle_out, args.path, args.all_correct))
 
@@ -578,7 +578,7 @@ def nlc_router_status_handler(args):
 def nlc_router_test_handler(args):
    res = nlc_router_test(args.url, args.username, args.password, args.collate_file, args.path)
    print_csv(OracleFileType.output_format(res))
->>>>>>> master
+
 
 def rnr_query_untrained_rnr_handler(args):
     print(query_untrained_rnr(args.url, args.username, args.password, args.c_id, args.query_file,args.collection_name))

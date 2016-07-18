@@ -14,7 +14,8 @@ def create_cluster(url, username, password,cluster_name):
         cluster_name = "solr_cluster"
     rnr = RetriveandRank(url=url, username=username, password=password)
     cluster = rnr.create_solr_cluster(cluster_name=cluster_name)
-    logger.info('Cluster creation starting....')
+    logger.info('Creating solr cluster....')
+
     # waiting for cluster to be ready
     end = time.time() + 600
     try:
@@ -39,7 +40,7 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file,conf
     try:
         zip_file = open(os.path.join(path,schema_file),'rb')
     except:
-        logger.info("Error opening zip file from:  %s" % os.path.join(path,schema_file))
+        logger.info("Error in uploading zip file from:  %s" % os.path.join(path,schema_file))
         exit()
 
     rnr = RetriveandRank(url=url, username=username, password=password)
@@ -51,18 +52,17 @@ def create_config(url, username, password,c_id,path,schema_file,corpus_file,conf
         collection_name = "solr_collection"
     collection = rnr.create_collection(c_id,collection_name,config_name)
     if collection['success']:
-        logger.info('Collection successfully created with name: %s'%collection_name)
+        logger.info('Collection successfully created as: %s'%collection_name)
     else:
         exit()
 
     # convert corpus to json format
     convert_corpus_to_json(os.path.join(path,corpus_file))
-    logger.info('corpus file successfully converted to json as: corpus.json')
+    logger.info('Corpus file successfully converted to json as: corpus.json')
 
     # add documents to collection
     logger.info('Adding documents to collection...')
     status = upload_corpus(url, username, password, c_id, os.path.join(path,'corpus.json'),collection_name)
-    #logger.info(pretty_print_json(status))
     if status.__contains__('Error Code'):
         logger.info('Error in uploading documents to collection')
         exit()
@@ -74,8 +74,9 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
 
     if not collection_name:
         collection_name = "solr_collection"
+
     # modify truth file to add relevance
-    logger.info('Adding relevance to ground truth file....')
+    logger.info('Adding relevance to ground truth....')
     create_truth(os.path.join(path,truth),path)
     logger.info('New file generated with relevance: rnr_relevance.csv')
 
@@ -85,7 +86,8 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
     logger.info('Conversion completed successfully. New file generated : training.txt')
 
 
-    # ranker
+    # ranker creation and training
+    '''
     if not ranker_name:
         ranker_name = "rnr_ranker"
     rnr = RetriveandRank(url=url, username=username, password=password)
@@ -104,11 +106,13 @@ def create_ranker(url, username, password,c_id,path,truth,ranker_name,collection
             time.sleep(10)
     except:
         logger.info('Error in ranker creation')
+    '''
 
     # Train the ranker with the training data that was generate above from the query/relevance input
-
+    logger.info('Creating and training ranker...')
     cred = username + ":" + password
-    ranker_name = "rnr_ranker"
+    if not ranker_name:
+        ranker_name = "rnr_ranker"
 
     ranker_curl_cmd = 'curl -k -X POST -u %s -F training_data=@%s -F training_metadata="{\\"name\\":\\"%s\\"}" %s' % (
      cred, os.path.join(path,'training.txt'), ranker_name, url+'/v1/rankers')
@@ -132,7 +136,7 @@ def create_truth(truth,path):
 
 # convert truth file in rnr format from relevance file
 def ranker_training_file(url,username,password,c_id,collection_name,relevance_file,path):
-    url = 'https://gateway.watsonplatform.net/retrieve-and-rank/api/v1/'+'solr_clusters/'+c_id+'/solr/'+collection_name+'/fcselect/'
+    url = url+'/v1/'+'solr_clusters/'+c_id+'/solr/'+collection_name+'/fcselect/'
     number_row = '10'
     cred = username+":"+password
     with open(relevance_file, 'rb') as csvfile:
