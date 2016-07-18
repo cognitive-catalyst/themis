@@ -15,7 +15,7 @@ def classifier_status(url, username, password, classifier_ids):
     n = NaturalLanguageClassifier(url=url, username=username, password=password)
     for classifier_id in classifier_ids:
         status = n.status(classifier_id)
-        print("%s: %s" % (status["status"], status["status_description"]))
+        print(" Instance name: %s with classifier id %s is %s; Description: %s" % (status["name"],status["classifier_id"],status["status"], status["status_description"]))
 
 
 def remove_classifiers(url, username, password, classifier_ids):
@@ -36,7 +36,6 @@ def train_nlc(url, username, password, truth, name):
         logger.info(pretty_print_json(r))
     return r["classifier_id"]
 
-
 class NLC(object):
     """
     Wrapper to a Natural Language Classifier via the
@@ -56,3 +55,10 @@ class NLC(object):
         class_name = classification["classes"][0]["class_name"]
         confidence = classification["classes"][0]["confidence"]
         return self.corpus.loc[class_name][ANSWER], confidence
+
+    def query(self, question):
+        classification = self.nlc.classify(self.classifier_id, question)
+        class_name = classification["classes"][1]["class_name"]
+        #confidence = classification["classes"][1]["confidence"]
+        return class_name#, confidence
+

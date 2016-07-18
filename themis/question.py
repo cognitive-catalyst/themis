@@ -2,8 +2,7 @@ import re
 
 import pandas
 
-from themis import QUESTION, CONFIDENCE, ANSWER, FREQUENCY
-from themis import logger, CsvFileType
+from themis import ANSWER, CONFIDENCE, FREQUENCY, QUESTION, CsvFileType, logger
 
 # Column headers in usage log
 QUESTION_TEXT = "QuestionText"
@@ -74,14 +73,25 @@ class UsageLogFileType(CsvFileType):
     WEA_DATE_FORMAT = re.compile(
         r"(?P<month>\d\d)(?P<day>\d\d)(?P<year>\d\d\d\d):(?P<hour>\d\d)(?P<min>\d\d)(?P<sec>\d\d):UTC")
 
-    def __init__(self):
+    canonical_cols = [QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE]
+    full_cols = [DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE]
+
+    def __init__(self, columns=full_cols):
+        # super(self.__class__, self).__init__(
+        #     [DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
+        #     {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER, TOP_ANSWER_CONFIDENCE: CONFIDENCE})
+
         super(self.__class__, self).__init__(
-            [DATE_TIME, QUESTION_TEXT, TOP_ANSWER_TEXT, TOP_ANSWER_CONFIDENCE, USER_EXPERIENCE],
+            columns,
             {QUESTION_TEXT: QUESTION, TOP_ANSWER_TEXT: ANSWER, TOP_ANSWER_CONFIDENCE: CONFIDENCE})
 
     def __call__(self, filename):
-        usage_log = super(self.__class__, self).__call__(filename)
-        usage_log[DATE_TIME] = pandas.to_datetime(usage_log[DATE_TIME].apply(self.standard_date_format))
+        try:
+            usage_log = super(self.__class__, self).__call__(filename)
+            usage_log[DATE_TIME] = pandas.to_datetime(usage_log[DATE_TIME].apply(self.standard_date_format))
+        except ValueError:
+            self.__init__(UsageLogFileType.canonical_cols)
+            usage_log = super(self.__class__, self).__call__(filename)
         return usage_log
 
     @staticmethod
@@ -99,13 +109,23 @@ class UsageLogFileType(CsvFileType):
 
 
 class QAPairFileType(CsvFileType):
-    columns = [QUESTION, ANSWER, CONFIDENCE, USER_EXPERIENCE, FREQUENCY, DATE_TIME]
+    canonical_cols = [QUESTION, FREQUENCY]
+    full_cols = [QUESTION, ANSWER, CONFIDENCE, USER_EXPERIENCE, FREQUENCY, DATE_TIME]
 
-    def __init__(self):
-        super(self.__class__, self).__init__(QAPairFileType.columns)
+    def __init__(self, columns=full_cols):
+        super(self.__class__, self).__init__(columns)
+
+    def __call__(self, filename):
+        try:
+            qa_pairs = super(self.__class__, self).__call__(filename)
+        except ValueError:
+            self.__init__(QAPairFileType.canonical_cols)
+            qa_pairs = super(self.__class__, self).__call__(filename)
+        return qa_pairs
 
     @staticmethod
     def output_format(qa_pairs):
-        qa_pairs = qa_pairs[QAPairFileType.columns]
+        columns = list(set(qa_pairs.columns).intersection(QAPairFileType.full_cols))
+        qa_pairs = qa_pairs[columns]
         qa_pairs = qa_pairs.sort_values([FREQUENCY, CONFIDENCE, QUESTION], ascending=(False, False, True))
         return qa_pairs.set_index([QUESTION, ANSWER])
